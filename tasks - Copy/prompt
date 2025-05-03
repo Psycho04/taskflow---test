@@ -1,0 +1,5 @@
+look the description is still null even if i wrote it in the 
+AddTaskDialog, i want you to handle it when the description is null 
+don't show the description or the word 'null', 
+second link between what i write and show it 
+at the description in the task Container
