@@ -15,7 +15,7 @@ class TaskOverviewSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withAlpha(26),
             spreadRadius: 1,
             blurRadius: 10,
             offset: const Offset(0, 3),
@@ -30,7 +30,7 @@ class TaskOverviewSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).primaryColor.withAlpha(26),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -53,9 +53,15 @@ class TaskOverviewSection extends StatelessWidget {
           Consumer<TaskProvider>(
             builder: (context, taskProvider, child) {
               final allTasks = taskProvider.tasks;
-              final completedTasks = allTasks.where((task) => task.stage.toLowerCase() == 'completed').length;
-              final inProgressTasks = allTasks.where((task) => task.stage.toLowerCase() == 'inprogress').length;
-              final todoTasks = allTasks.where((task) => task.stage.toLowerCase() == 'todo').length;
+              final completedTasks = allTasks
+                  .where((task) => task.stage.toLowerCase() == 'completed')
+                  .length;
+              final inProgressTasks = allTasks
+                  .where((task) => task.stage.toLowerCase() == 'inprogress')
+                  .length;
+              final todoTasks = allTasks
+                  .where((task) => task.stage.toLowerCase() == 'todo')
+                  .length;
 
               return GridView.count(
                 crossAxisCount: 2,
@@ -123,7 +129,7 @@ class TaskOverviewSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
+                  color: iconColor.withAlpha(26),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
@@ -144,7 +150,7 @@ class TaskOverviewSection extends StatelessWidget {
             title,
             style: TextStyle(
               fontSize: 14,
-              color: iconColor.withOpacity(0.8),
+              color: iconColor.withAlpha(204),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -152,4 +158,4 @@ class TaskOverviewSection extends StatelessWidget {
       ),
     );
   }
-} 
+}

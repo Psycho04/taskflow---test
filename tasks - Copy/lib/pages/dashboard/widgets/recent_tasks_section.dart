@@ -15,7 +15,7 @@ class RecentTasksSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withAlpha(26),
             spreadRadius: 1,
             blurRadius: 10,
             offset: const Offset(0, 3),
@@ -30,7 +30,7 @@ class RecentTasksSection extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).primaryColor.withAlpha(26),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -58,7 +58,8 @@ class RecentTasksSection extends StatelessWidget {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -173,7 +174,7 @@ class RecentTasksSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: priorityColor.withOpacity(0.1),
+              color: priorityColor.withAlpha(26),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -199,4 +200,4 @@ class RecentTasksSection extends StatelessWidget {
       ),
     );
   }
-} 
+}

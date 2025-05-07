@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:tasks/providers/task_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../../../services/notification_service.dart';
 
 class AddTaskDialog extends StatefulWidget {
   final Function(Task) onTaskAdded;
@@ -27,9 +26,9 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   final List<String> _selectedAssignees = [];
   bool _isLoading = false;
   String? _errorMessage;
+  bool _assigneeValidationAttempted = false;
   List<Map<String, dynamic>> _users = [];
   bool _isLoadingUsers = true;
-  final NotificationService _notificationService = NotificationService();
   String? _currentUserId;
 
   final List<String> _priorities = ['High', 'Medium', 'Low'];
@@ -45,7 +44,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('userData');
-      
+
       if (userDataString != null) {
         final userData = json.decode(userDataString);
         if (mounted) {
@@ -68,11 +67,11 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     try {
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
       final users = await taskProvider.getNormalUsers();
-      
+
       // Filter to ensure only non-admin users are shown
-      final normalUsers = users.where((user) => 
-        user['role']?.toString().toLowerCase() == 'user'
-      ).toList();
+      final normalUsers = users
+          .where((user) => user['role']?.toString().toLowerCase() == 'user')
+          .toList();
 
       if (!mounted) return;
       setState(() {
@@ -111,6 +110,20 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
   Future<void> _createTask() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // Set flag that validation has been attempted
+    setState(() {
+      _assigneeValidationAttempted = true;
+    });
+
+    // Check if assignees are selected
+    if (_selectedAssignees.isEmpty) {
+      setState(() {
+        _errorMessage =
+            'Please select at least one team member to assign the task to';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -124,7 +137,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
           (user) => user['_id'] == id,
           orElse: () => {'_id': id, 'fullName': '', 'email': ''},
         );
-        
+
         return {
           'id': userData['_id'] ?? id,
           'fullName': userData['fullName'] ?? '',
@@ -148,7 +161,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
       if (success) {
         // First update the parent
         widget.onTaskAdded(task);
-        
+
         // Then clear loading state and close dialog
         if (mounted) {
           setState(() {
@@ -156,27 +169,10 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
           });
           Navigator.of(context).pop();
         }
-        
-        // Handle notifications after dialog is closed
-        if (_currentUserId != null) {
-          Future(() async {
-            try {
-              for (final assigneeId in _selectedAssignees) {
-                await _notificationService.sendTaskAssignmentNotification(
-                  userId: assigneeId,
-                  taskId: task.id,
-                  taskTitle: task.title,
-                  assignedBy: _currentUserId!,
-                );
-              }
-            } catch (e) {
-              print('Error sending notifications: $e');
-            }
-          });
-        }
       } else {
         setState(() {
-          _errorMessage = taskProvider.error ?? 'Failed to create task. Please try again.';
+          _errorMessage =
+              taskProvider.error ?? 'Failed to create task. Please try again.';
         });
       }
     } catch (e) {
@@ -196,10 +192,10 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
     await showDialog(
       context: context,
       builder: (BuildContext dialogContext) => Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Container(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
           width: 300,
           constraints: BoxConstraints(
             maxHeight: MediaQuery.of(context).size.height * 0.7,
@@ -272,28 +268,31 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                         final user = _users[index];
                         final userId = user['_id'] as String;
                         final userName = user['fullName'] as String;
-                        final userRole = user['role'] as String;
+                        final jobTitle =
+                            user['jobTitle'] as String? ?? 'Employee';
                         final isSelected = _selectedAssignees.contains(userId);
 
                         // Print user data for debugging
                         print('User at index $index: $user');
-                        
+
                         return Material(
                           color: Colors.transparent,
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: Colors.blue.shade100,
                               child: Text(
-                                userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                                userName.isNotEmpty
+                                    ? userName[0].toUpperCase()
+                                    : 'U',
                                 style: TextStyle(
                                   color: Colors.blue.shade700,
-                            fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
                             title: Text(userName),
                             subtitle: Text(
-                              userRole,
+                              jobTitle,
                               style: TextStyle(
                                 color: Colors.grey.shade600,
                                 fontSize: 12,
@@ -326,7 +325,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                         );
                       },
                     ),
-                    ),
+                  ),
                 ),
               const Divider(height: 1),
               Padding(
@@ -439,7 +438,8 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red.shade400, size: 24),
+                          Icon(Icons.error_outline,
+                              color: Colors.red.shade400, size: 24),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -455,26 +455,27 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       ),
                     ),
                   TextFormField(
-      controller: _titleController,
-      decoration: InputDecoration(
+                    controller: _titleController,
+                    decoration: InputDecoration(
                       labelText: 'Title',
                       hintText: 'Enter task title',
                       prefixIcon: const Icon(Icons.title_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: Colors.blue.shade400, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a title';
@@ -490,25 +491,26 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                   ),
                   const SizedBox(height: 20),
                   TextFormField(
-      controller: _descriptionController,
-      decoration: InputDecoration(
+                    controller: _descriptionController,
+                    decoration: InputDecoration(
                       labelText: 'Description',
                       hintText: 'Enter task description',
-        prefixIcon: const Icon(Icons.description_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
+                      prefixIcon: const Icon(Icons.description_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide:
+                            BorderSide(color: Colors.blue.shade400, width: 2),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
                       alignLabelWithHint: true,
                     ),
                     minLines: 1,
@@ -533,10 +535,12 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                     onTap: () async {
                       final now = DateTime.now();
                       final today = DateTime(now.year, now.month, now.day);
-                      
+
                       final DateTime? picked = await showDatePicker(
                         context: context,
-                        initialDate: _selectedDate.isBefore(today) ? today : _selectedDate,
+                        initialDate: _selectedDate.isBefore(today)
+                            ? today
+                            : _selectedDate,
                         firstDate: today,
                         lastDate: DateTime.now().add(const Duration(days: 365)),
                         builder: (context, child) {
@@ -586,13 +590,15 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+                            borderSide: BorderSide(
+                                color: Colors.blue.shade400, width: 2),
                           ),
                           filled: true,
                           fillColor: Colors.grey.shade50,
                         ),
                         controller: TextEditingController(
-                          text: "${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}",
+                          text:
+                              "${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}",
                         ),
                         style: const TextStyle(fontSize: 14),
                       ),
@@ -611,39 +617,44 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                             'Select Priority',
                             style: TextStyle(fontSize: 14),
                           ),
-      decoration: InputDecoration(
+                          decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                             labelText: 'Priority',
-        prefixIcon: const Icon(Icons.flag_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
+                            prefixIcon: const Icon(Icons.flag_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
+                              borderSide: BorderSide(
+                                  color: Colors.blue.shade400, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
                           items: _priorities.map((priority) {
-        Color priorityColor = priority == 'High'
+                            Color priorityColor = priority == 'High'
                                 ? const Color(0xFFE53935)
-            : priority == 'Medium'
+                                : priority == 'Medium'
                                     ? const Color(0xFFFB8C00)
                                     : const Color(0xFF43A047);
-        return DropdownMenuItem(
-          value: priority,
-          child: Row(
+                            return DropdownMenuItem(
+                              value: priority,
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.circle, size: 12, color: priorityColor),
-              const SizedBox(width: 8),
+                                children: [
+                                  Icon(Icons.circle,
+                                      size: 12, color: priorityColor),
+                                  const SizedBox(width: 8),
                                   Flexible(
                                     child: Text(
                                       priority,
@@ -651,15 +662,15 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                                       style: const TextStyle(fontSize: 14),
                                     ),
                                   ),
-            ],
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        setState(() {
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
                               _selectedPriority = value;
-        });
-      },
+                            });
+                          },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please select a priority';
@@ -674,20 +685,23 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                         child: TextFormField(
                           enabled: false,
                           initialValue: 'To Do',
-      decoration: InputDecoration(
+                          decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                             labelText: 'Status',
-        prefixIcon: const Icon(Icons.layers_outlined),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
+                            prefixIcon: const Icon(Icons.layers_outlined),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
                             disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        filled: true,
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            filled: true,
                             fillColor: Colors.grey.shade100,
                           ),
                           style: TextStyle(
@@ -700,51 +714,54 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                   ),
                   const SizedBox(height: 20),
                   Container(
-      decoration: BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.shade50,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey.shade50,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                              Icon(Icons.people_outline, size: 20, color: Colors.blue.shade700),
+                          child: Row(
+                            children: [
+                              Icon(Icons.people_outline,
+                                  size: 20, color: Colors.blue.shade700),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'Team Members',
-                  style: TextStyle(
+                                  style: TextStyle(
                                     color: Colors.blue.shade700,
-                    fontSize: 16,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                         if (_selectedAssignees.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
                               children: _selectedAssignees.map((userId) {
-                                final user = _users.firstWhere((u) => u['_id'] == userId);
-                                final name = user['fullName']?.toString() ?? 'Unknown User';
+                                final user = _users
+                                    .firstWhere((u) => u['_id'] == userId);
+                                final name = user['fullName']?.toString() ??
+                                    'Unknown User';
                                 return Chip(
                                   label: Text(
                                     name,
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                   backgroundColor: Colors.white,
                                   side: BorderSide(color: Colors.blue.shade400),
                                   deleteIcon: Icon(
@@ -753,21 +770,24 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                                     color: Colors.blue.shade400,
                                   ),
                                   onDeleted: () {
-                                setState(() {
+                                    setState(() {
                                       _selectedAssignees.remove(userId);
-                                });
-                              },
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                    });
+                                  },
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 0),
                                 );
                               }).toList(),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: ElevatedButton.icon(
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: ElevatedButton.icon(
                             onPressed: _showAssigneesDialog,
                             icon: const Icon(Icons.person_add_outlined),
-                            label: Text(_selectedAssignees.isEmpty ? 'Add Team Members' : 'Add More'),
+                            label: Text(_selectedAssignees.isEmpty
+                                ? 'Add Team Members'
+                                : 'Add More'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade400,
                               foregroundColor: Colors.white,
@@ -784,12 +804,26 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       ],
                     ),
                   ),
+                  // Add error indicator for assignees
+                  if (_assigneeValidationAttempted &&
+                      _selectedAssignees.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, left: 4),
+                      child: Text(
+                        'Please select at least one team member',
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
+                    children: [
                       TextButton(
-                        onPressed: _isLoading ? null : () => Navigator.pop(context),
+                        onPressed:
+                            _isLoading ? null : () => Navigator.pop(context),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
@@ -814,10 +848,10 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                             horizontal: 32,
                             vertical: 12,
                           ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
                         child: _isLoading
                             ? const SizedBox(
                                 height: 20,
@@ -829,14 +863,14 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                               )
                             : const Text(
                                 'Create Task',
-                        style: TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
-                        ),
+                                ),
+                              ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 ],
               ),
             ),

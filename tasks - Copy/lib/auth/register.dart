@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tasks/pages/home/home.dart'; // Import the Home widget to access its routeName
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -10,18 +11,19 @@ class RegisterScreen extends StatefulWidget {
   _RegisterScreenState createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _jobTitleController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+
   bool _isLoading = false;
-    bool _isPasswordVisible = false; 
-    bool _isConfirmPasswordVisible = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   String? _errorMessage;
-  String? _successMessage;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -63,6 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   void dispose() {
     _animationController.dispose();
     _nameController.dispose();
+    _jobTitleController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -75,14 +78,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _successMessage = null;
     });
 
     try {
       print('Attempting to register with data:');
       print('Name: ${_nameController.text}');
+      print('Job Title: ${_jobTitleController.text}');
       print('Email: ${_emailController.text}');
-      
+
       final response = await http.post(
         Uri.parse('http://10.0.2.2:5000/api/auth/signup'),
         headers: {
@@ -91,6 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         },
         body: jsonEncode({
           'name': _nameController.text,
+          'jobTitle': _jobTitleController.text,
           'email': _emailController.text,
           'password': _passwordController.text,
           'rePassword': _confirmPasswordController.text,
@@ -101,24 +105,32 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       print('Response headers: ${response.headers}');
       print('Response body: ${response.body}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('Successfully created user: ${data['user']}');
-        
-        setState(() {
-          _successMessage = 'Registration successful! Redirecting to login...';
-        });
-        
+
+        // Save token and user data
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
-        
-        Future.delayed(const Duration(seconds: 2), () {
-          Navigator.pushReplacementNamed(context, '/login');
-        });
+
+        // Store user data if available
+        if (data['user'] != null) {
+          await prefs.setString('userData', jsonEncode(data['user']));
+        }
+
+        // Navigate directly to home screen
+        if (mounted) {
+          await Navigator.of(context).pushNamedAndRemoveUntil(
+            Home.routeName,
+            (route) => false,
+            arguments: {'justLoggedIn': true},
+          );
+        }
       } else {
         final data = jsonDecode(response.body);
         setState(() {
-          _errorMessage = data['message'] ?? 'Registration failed. Please try again.';
+          _errorMessage =
+              data['message'] ?? 'Registration failed. Please try again.';
         });
         print('Registration failed with error: $_errorMessage');
       }
@@ -127,7 +139,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       print('Stack trace: $stackTrace');
       setState(() {
         if (e is http.ClientException) {
-          _errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+          _errorMessage =
+              'Unable to connect to the server. Please check your internet connection.';
         } else if (e is FormatException) {
           _errorMessage = 'Invalid response from server. Please try again.';
         } else {
@@ -135,9 +148,11 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         }
       });
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -179,7 +194,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     if (_errorMessage != null)
                       FadeTransition(
                         opacity: _fadeAnimation,
@@ -192,7 +206,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade400),
+                              Icon(Icons.error_outline,
+                                  color: Colors.red.shade400),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -207,35 +222,6 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           ),
                         ),
                       ),
-
-                    if (_successMessage != null)
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.green.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.check_circle_outline, color: Colors.green.shade400),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  _successMessage!,
-                                  style: TextStyle(
-                                    color: Colors.green.shade700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
                     const SizedBox(height: 24),
                     Form(
                       key: _formKey,
@@ -261,6 +247,32 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 }
                                 if (value.length > 40) {
                                   return 'Name must be at most 40 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SlideTransition(
+                            position: _slideAnimation,
+                            child: TextFormField(
+                              controller: _jobTitleController,
+                              decoration: InputDecoration(
+                                labelText: 'Job Title',
+                                prefixIcon: const Icon(Icons.work_outline),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Job Title is required';
+                                }
+                                if (value.length < 4) {
+                                  return 'Job Title must be at least 4 characters';
+                                }
+                                if (value.length > 40) {
+                                  return 'Job Title must be at most 40 characters';
                                 }
                                 return null;
                               },
@@ -301,9 +313,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _isPasswordVisible 
-                                      ? Icons.visibility 
-                                      : Icons.visibility_off,
+                                    _isPasswordVisible
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
                                   ),
                                   onPressed: () {
                                     setState(() {
@@ -338,13 +350,14 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _isConfirmPasswordVisible 
-                                      ? Icons.visibility 
-                                      : Icons.visibility_off,
+                                    _isConfirmPasswordVisible
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
                                   ),
                                   onPressed: () {
                                     setState(() {
-                                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                                      _isConfirmPasswordVisible =
+                                          !_isConfirmPasswordVisible;
                                     });
                                   },
                                 ),

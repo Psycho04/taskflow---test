@@ -32,10 +32,6 @@ class CustomBottomNavBar extends StatelessWidget {
           label: 'Team',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.smart_toy),
-          label: 'AI',
-        ),
-        BottomNavigationBarItem(
           icon: Icon(Icons.delete),
           label: 'Trash',
         ),

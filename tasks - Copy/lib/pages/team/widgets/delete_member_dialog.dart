@@ -55,7 +55,8 @@ class DeleteMemberDialog extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                  backgroundColor:
+                      Theme.of(context).primaryColor.withOpacity(0.1),
                   child: Text(
                     initials,
                     style: TextStyle(
@@ -77,7 +78,7 @@ class DeleteMemberDialog extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        member['role'],
+                        member['jobTitle'] ?? 'Employee',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey.shade600,
@@ -137,4 +138,4 @@ class DeleteMemberDialog extends StatelessWidget {
       ),
     );
   }
-} 
+}

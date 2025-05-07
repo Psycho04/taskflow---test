@@ -26,7 +26,7 @@ class _EditMemberDialogState extends State<EditMemberDialog> {
     nameController = TextEditingController(text: widget.member['fullName']);
     emailController = TextEditingController(text: widget.member['email']);
     roleController = TextEditingController(text: widget.member['role']);
-    
+
     final names = widget.member['fullName'].split(' ');
     initials = names.length >= 2 ? '${names[0][0]}${names[1][0]}' : names[0][0];
   }
@@ -133,7 +133,8 @@ class _EditMemberDialogState extends State<EditMemberDialog> {
                 const SizedBox(width: 12),
                 ElevatedButton(
                   onPressed: () {
-                    final updatedMember = Map<String, dynamic>.from(widget.member);
+                    final updatedMember =
+                        Map<String, dynamic>.from(widget.member);
                     updatedMember['fullName'] = nameController.text;
                     updatedMember['email'] = emailController.text;
                     updatedMember['role'] = roleController.text;
@@ -158,4 +159,4 @@ class _EditMemberDialogState extends State<EditMemberDialog> {
       ),
     );
   }
-} 
+}

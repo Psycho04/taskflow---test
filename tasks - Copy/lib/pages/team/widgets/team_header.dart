@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class TeamHeader extends StatelessWidget {
   final int memberCount;
-  
+
   const TeamHeader({
     super.key,
     required this.memberCount,
@@ -64,4 +64,4 @@ class TeamHeader extends StatelessWidget {
       ),
     );
   }
-} 
+}

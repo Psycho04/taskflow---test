@@ -13,7 +13,7 @@ export const bootstrap = (app) => {
     app.use('/api/user', userRouter)
     app.use('/api/notification', notificationRouter)
     app.use('/api/chatbot', chatbotRouter)
-    app.use('/api/groupChat', groupChatRouter)
+    app.use('/api/v1/group-chat', groupChatRouter)
 
     app.use('*', (req, res, next) => {
         next(new AppError('error in endpoint', 404))

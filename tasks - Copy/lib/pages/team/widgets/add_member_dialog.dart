@@ -31,7 +31,7 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
-      
+
       if (token == null) {
         throw Exception('Authentication required');
       }
@@ -153,10 +153,12 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
                 filled: true,
                 fillColor: Colors.grey.shade50,
               ),
-              items: ['admin', 'user'].map((role) => DropdownMenuItem(
-                value: role,
-                child: Text(role.toUpperCase()),
-              )).toList(),
+              items: ['admin', 'user']
+                  .map((role) => DropdownMenuItem(
+                        value: role,
+                        child: Text(role.toUpperCase()),
+                      ))
+                  .toList(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() {
@@ -200,4 +202,4 @@ class _AddMemberDialogState extends State<AddMemberDialog> {
       ),
     );
   }
-} 
+}

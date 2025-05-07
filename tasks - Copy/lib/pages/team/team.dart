@@ -87,6 +87,7 @@ class _TeamState extends State<Team> {
               _teamMembers = users.map((user) => {
                 'id': user['_id']?.toString() ?? '',
                 'fullName': user['name']?.toString() ?? '',
+'jobTitle': user['jobTitle']?.toString() ?? 'Not specified',
                 'email': user['email']?.toString() ?? '',
                 'role': user['role']?.toString().toUpperCase() ?? 'USER',
                 'createdAt': user['createdAt']?.toString() ?? '',

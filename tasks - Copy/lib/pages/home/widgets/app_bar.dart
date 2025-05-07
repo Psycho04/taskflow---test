@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../../../shared/widgets/notification_icon.dart';
+import 'package:provider/provider.dart';
+import 'package:tasks/providers/notification_provider.dart';
+import 'package:tasks/pages/notifications/notification_dialog.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
-  final Function(String) onMenuItemSelected;
-
-  const CustomAppBar({
-    super.key,
-    required this.onMenuItemSelected,
-  });
+  const CustomAppBar({super.key});
 
   @override
   State<CustomAppBar> createState() => _CustomAppBarState();
@@ -25,13 +22,21 @@ class _CustomAppBarState extends State<CustomAppBar> {
   void initState() {
     super.initState();
     _loadUserData();
+
+    // Fetch notifications when the app bar initializes
+    Future.microtask(() {
+      if (mounted) {
+        Provider.of<NotificationProvider>(context, listen: false)
+            .fetchNotifications();
+      }
+    });
   }
 
   Future<void> _loadUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userDataString = prefs.getString('userData');
-      
+
       if (userDataString != null) {
         final userData = json.decode(userDataString);
         if (mounted) {
@@ -41,8 +46,15 @@ class _CustomAppBarState extends State<CustomAppBar> {
         }
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
     }
+  }
+
+  void _showNotifications() {
+    showDialog(
+      context: context,
+      builder: (context) => const NotificationDialog(),
+    );
   }
 
   @override
@@ -53,72 +65,47 @@ class _CustomAppBarState extends State<CustomAppBar> {
         style: TextStyle(color: Colors.white),
       ),
       actions: [
-        if (userId != null)
-          NotificationIcon(userId: userId!),
-        Theme(
-          data: Theme.of(context).copyWith(
-            popupMenuTheme: PopupMenuThemeData(
-              elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          child: PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            offset: const Offset(0, 50),
-            onSelected: widget.onMenuItemSelected,
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withAlpha(25),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.person, color: Colors.blue),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Profile',
-                      style: TextStyle(fontWeight: FontWeight.w500),
-                    ),
-                  ],
+        Consumer<NotificationProvider>(
+          builder: (context, notificationProvider, child) {
+            final unreadCount = notificationProvider.unreadCount;
+
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: _showNotifications,
                 ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: Colors.red.withAlpha(25),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.logout, color: Colors.red),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Logout',
-                      style: TextStyle(
                         color: Colors.red,
-                        fontWeight: FontWeight.w500,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        unreadCount > 9 ? '9+' : unreadCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+                  ),
+              ],
+            );
+          },
         ),
-        const SizedBox(width: 10),
       ],
       backgroundColor: Colors.blue,
     );
   }
-} 
+}

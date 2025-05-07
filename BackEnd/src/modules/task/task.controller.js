@@ -2,21 +2,38 @@ import { Task } from "../../../database/models/task.model.js";
 import { AppError } from "../../utils/AppError.js";
 import { catchError } from "../../utils/catchError.js";
 import { Notifications } from "../../../database/models/notification.model.js";
+import { User } from "../../../database/models/user.model.js";
 
 export const addTask = catchError(async (req, res, next) => {
   req.body.createdBy = req.user._id;
   let task = await Task.insertMany(req.body);
 
-  // Create notifications for each assigned user
-  const notifications = req.body.assignedTo.map((userId) => ({
-    assignedTo: [userId],
-    message: `New task assigned: ${req.body.title}`,
-    type: "task_created",
-    relatedTask: task[0]._id,
-    createdBy: req.user._id,
-  }));
+  // Create notifications for each assigned user, excluding admin users
+  const assignedUserIds = req.body.assignedTo;
 
-  await Notifications.insertMany(notifications);
+  if (assignedUserIds.length > 0) {
+    // Get all assigned users to check their roles
+    const assignedUsers = await User.find({
+      _id: { $in: assignedUserIds }
+    }, '_id role');
+
+    // Filter out admin users from receiving notifications
+    const nonAdminUsers = assignedUsers
+      .filter(user => user.role !== 'admin')
+      .map(user => user._id.toString());
+
+    if (nonAdminUsers.length > 0) {
+      const notifications = nonAdminUsers.map((userId) => ({
+        assignedTo: [userId],
+        message: `New task assigned: ${req.body.title}`,
+        type: "task_created",
+        relatedTask: task[0]._id,
+        createdBy: req.user._id,
+      }));
+
+      await Notifications.insertMany(notifications);
+    }
+  }
 
   res.json({ message: "added", task });
 });
@@ -91,16 +108,30 @@ export const moveToTrash = catchError(async (req, res, next) => {
     return next(new AppError("Task not found", 404));
   }
 
-  // Create notifications for each assigned user about moving to trash
-  const notifications = task.assignedTo.map((userId) => ({
-    assignedTo: [userId],
-    message: `Task moved to trash: ${task.title}`,
-    type: "task_trashed",
-    relatedTask: task._id,
-    createdBy: req.user._id,
-  }));
+  // Create notifications for each assigned user about moving to trash, excluding admin users
+  if (task.assignedTo && task.assignedTo.length > 0) {
+    // Get all assigned users to check their roles
+    const assignedUsers = await User.find({
+      _id: { $in: task.assignedTo }
+    }, '_id role');
 
-  await Notifications.insertMany(notifications);
+    // Filter out admin users from receiving notifications
+    const nonAdminUsers = assignedUsers
+      .filter(user => user.role !== 'admin')
+      .map(user => user._id.toString());
+
+    if (nonAdminUsers.length > 0) {
+      const notifications = nonAdminUsers.map((userId) => ({
+        assignedTo: [userId],
+        message: `Task moved to trash: ${task.title}`,
+        type: "task_trashed",
+        relatedTask: task._id,
+        createdBy: req.user._id,
+      }));
+
+      await Notifications.insertMany(notifications);
+    }
+  }
 
   // Move task to trash instead of deleting
   task.isDeleted = true;
@@ -122,16 +153,30 @@ export const restoreTask = catchError(async (req, res, next) => {
     return next(new AppError("Task is not in trash", 400));
   }
 
-  // Create notifications for each assigned user about restoration
-  const notifications = task.assignedTo.map((userId) => ({
-    assignedTo: [userId],
-    message: `Task restored from trash: ${task.title}`,
-    type: "task_restored",
-    relatedTask: task._id,
-    createdBy: req.user._id,
-  }));
+  // Create notifications for each assigned user about restoration, excluding admin users
+  if (task.assignedTo && task.assignedTo.length > 0) {
+    // Get all assigned users to check their roles
+    const assignedUsers = await User.find({
+      _id: { $in: task.assignedTo }
+    }, '_id role');
 
-  await Notifications.insertMany(notifications);
+    // Filter out admin users from receiving notifications
+    const nonAdminUsers = assignedUsers
+      .filter(user => user.role !== 'admin')
+      .map(user => user._id.toString());
+
+    if (nonAdminUsers.length > 0) {
+      const notifications = nonAdminUsers.map((userId) => ({
+        assignedTo: [userId],
+        message: `Task restored from trash: ${task.title}`,
+        type: "task_restored",
+        relatedTask: task._id,
+        createdBy: req.user._id,
+      }));
+
+      await Notifications.insertMany(notifications);
+    }
+  }
 
   // Restore the task
   task.isDeleted = false;
@@ -176,18 +221,48 @@ export const emptyTrash = catchError(async (req, res, next) => {
     createdBy: req.user._id,
   });
 
-  // Create notifications for all affected users
-  const notifications = tasks.flatMap((task) =>
-    task.assignedTo.map((userId) => ({
-      assignedTo: [userId],
-      message: `Task permanently deleted: ${task.title}`,
-      type: "task_deleted",
-      relatedTask: task._id,
-      createdBy: req.user._id,
-    }))
-  );
+  if (tasks.length > 0) {
+    // Get all unique assigned user IDs across all tasks
+    const allAssignedUserIds = [...new Set(
+      tasks.flatMap(task => task.assignedTo.map(id => id.toString()))
+    )];
 
-  await Notifications.insertMany(notifications);
+    if (allAssignedUserIds.length > 0) {
+      // Get all assigned users to check their roles
+      const assignedUsers = await User.find({
+        _id: { $in: allAssignedUserIds }
+      }, '_id role');
+
+      // Filter out admin users from receiving notifications
+      const nonAdminUserIds = assignedUsers
+        .filter(user => user.role !== 'admin')
+        .map(user => user._id.toString());
+
+      if (nonAdminUserIds.length > 0) {
+        // Create notifications only for non-admin users
+        const notifications = [];
+
+        tasks.forEach(task => {
+          task.assignedTo.forEach(userId => {
+            const userIdStr = userId.toString();
+            if (nonAdminUserIds.includes(userIdStr)) {
+              notifications.push({
+                assignedTo: [userIdStr],
+                message: `Task permanently deleted: ${task.title}`,
+                type: "task_deleted",
+                relatedTask: task._id,
+                createdBy: req.user._id,
+              });
+            }
+          });
+        });
+
+        if (notifications.length > 0) {
+          await Notifications.insertMany(notifications);
+        }
+      }
+    }
+  }
 
   // Permanently delete all tasks in trash
   await Task.deleteMany({
@@ -203,16 +278,30 @@ export const updateTask = catchError(async (req, res, next) => {
   let task = await Task.findByIdAndUpdate(id, req.body, { new: true });
   if (!task) return next(new AppError("task is not found", 500));
 
-  // Create notifications for each assigned user about the update
-  const notifications = task.assignedTo.map((userId) => ({
-    assignedTo: [userId],
-    message: `Task updated: ${task.title}`,
-    type: "task_updated",
-    relatedTask: task._id,
-    createdBy: req.user._id,
-  }));
+  // Create notifications for each assigned user about the update, excluding admin users
+  if (task.assignedTo && task.assignedTo.length > 0) {
+    // Get all assigned users to check their roles
+    const assignedUsers = await User.find({
+      _id: { $in: task.assignedTo }
+    }, '_id role');
 
-  await Notifications.insertMany(notifications);
+    // Filter out admin users from receiving notifications
+    const nonAdminUsers = assignedUsers
+      .filter(user => user.role !== 'admin')
+      .map(user => user._id.toString());
+
+    if (nonAdminUsers.length > 0) {
+      const notifications = nonAdminUsers.map((userId) => ({
+        assignedTo: [userId],
+        message: `Task updated: ${task.title}`,
+        type: "task_updated",
+        relatedTask: task._id,
+        createdBy: req.user._id,
+      }));
+
+      await Notifications.insertMany(notifications);
+    }
+  }
 
   res.json({ message: "updated", task });
 });
@@ -222,7 +311,7 @@ export const updateTaskStatus = catchError(async (req, res, next) => {
   const { status } = req.body;
 
   // Find the task
-  const task = await Task.findById(id);
+  const task = await Task.findById(id).populate('createdBy', 'role');
   if (!task) {
     return next(new AppError("Task not found", 404));
   }
@@ -235,20 +324,33 @@ export const updateTaskStatus = catchError(async (req, res, next) => {
     return next(new AppError("You are not assigned to this task", 403));
   }
 
+  const oldStatus = task.status;
+
   // Update only the status
   task.status = status;
   await task.save();
 
-  // Create notification for the task creator
-  const notification = {
-    assignedTo: [task.createdBy],
-    message: `Task status updated to ${status}: ${task.title}`,
-    type: "task_updated",
-    relatedTask: task._id,
-    createdBy: req.user._id,
-  };
+  // Only send notification to admin when task is moved to "in progress"
+  if (status === 'in progress' && oldStatus !== 'in progress') {
+    // Find all admin users and get current user's name
+    const [adminUsers, currentUser] = await Promise.all([
+      User.find({ role: 'admin' }),
+      User.findById(req.user._id, 'name')
+    ]);
 
-  await Notifications.create(notification);
+    if (adminUsers && adminUsers.length > 0) {
+      // Create notifications for all admin users
+      const notifications = adminUsers.map(admin => ({
+        assignedTo: [admin._id],
+        message: `${currentUser.name} started working on task: ${task.title}`,
+        type: "task_updated",
+        relatedTask: task._id,
+        createdBy: req.user._id,
+      }));
+
+      await Notifications.insertMany(notifications);
+    }
+  }
 
   res.json({ message: "status updated", task });
 });

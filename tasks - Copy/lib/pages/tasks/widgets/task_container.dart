@@ -97,7 +97,7 @@ class TaskContainer extends StatelessWidget {
         border: Border(
           left: BorderSide(
             color: _getPriorityColor(),
-            width: 4,
+            width: 2,
           ),
         ),
       ),
@@ -118,7 +118,7 @@ class TaskContainer extends StatelessWidget {
                 border: Border(
                   left: BorderSide(
                     color: _getPriorityColor(),
-                    width: 4,
+                    width: 2,
                   ),
                 ),
               ),
@@ -133,7 +133,7 @@ class TaskContainer extends StatelessWidget {
                         _buildPriorityBadge(),
                         const SizedBox(width: 8),
                         _buildStatusBadge(),
-                        Spacer(),
+                        const Spacer(),
                         if (isAdmin) _buildMenuButton(context),
                       ],
                     ),
@@ -187,7 +187,8 @@ class TaskContainer extends StatelessWidget {
                       ],
                     ),
                     // Start Task Button
-                    if (stage.toLowerCase().replaceAll(' ', '') == 'todo')
+                    if (!isAdmin &&
+                        stage.toLowerCase().replaceAll(' ', '') == 'todo')
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: Align(
@@ -415,7 +416,8 @@ class TaskContainer extends StatelessWidget {
                   '_id': user['_id'],
                   'fullName': user['fullName'],
                   'email': user['email'],
-                  'role': user['role']
+                  'role': user['role'],
+                  'jobTitle': user['jobTitle'] ?? 'Employee'
                 })
             .toList();
 
@@ -602,33 +604,32 @@ class TaskContainer extends StatelessWidget {
                         const SizedBox(height: 20),
 
                         // Stage
-                        DropdownButtonFormField<String>(
-                          value: selectedStage,
+                        TextField(
+                          enabled: false,
+                          controller:
+                              TextEditingController(text: selectedStage),
                           decoration: InputDecoration(
                             labelText: 'Stage',
                             prefixIcon: const Icon(Icons.layers_outlined),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            enabledBorder: OutlineInputBorder(
+                            disabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide:
                                   BorderSide(color: Colors.grey.shade300),
                             ),
                             filled: true,
-                            fillColor: Colors.grey.shade50,
+                            fillColor: Colors.grey.shade100,
                           ),
-                          items: const ['To Do', 'In Progress', 'Completed']
-                              .map((stage) => DropdownMenuItem(
-                                    value: stage,
-                                    child: Text(stage),
-                                  ))
-                              .toList(),
-                          onChanged: (value) {
-                            setDialogState(() {
-                              selectedStage = value!;
-                            });
-                          },
+                          style: TextStyle(
+                            color: selectedStage == 'To Do'
+                                ? const Color(0xFFFF9800)
+                                : selectedStage == 'In Progress'
+                                    ? const Color(0xFF2196F3)
+                                    : const Color(0xFF4CAF50),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 20),
 
@@ -895,6 +896,10 @@ class TaskContainer extends StatelessWidget {
                                                                     'role']
                                                                 ?.toString() ??
                                                             'user';
+                                                        final jobTitle = member[
+                                                                    'jobTitle']
+                                                                ?.toString() ??
+                                                            'Employee';
 
                                                         final isSelected =
                                                             selectedAssignees.any(
@@ -1040,7 +1045,7 @@ class TaskContainer extends StatelessWidget {
                                                                         ),
                                                                       ),
                                                                       Text(
-                                                                        role,
+                                                                        jobTitle,
                                                                         style:
                                                                             TextStyle(
                                                                           fontSize:
@@ -1240,9 +1245,7 @@ class TaskContainer extends StatelessWidget {
                                       description: descriptionController.text,
                                       priority: selectedPriority.toLowerCase(),
                                       date: selectedDate,
-                                      stage: selectedStage
-                                          .replaceAll(' ', '')
-                                          .toLowerCase(),
+                                      stage: stage,
                                       assignees: assigneeIds
                                           .map((id) => {
                                                 'id': id,
@@ -1392,34 +1395,68 @@ class TaskContainer extends StatelessWidget {
                   const SizedBox(width: 15),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (id != null) {
                           final taskProvider =
                               Provider.of<TaskProvider>(context, listen: false);
-                          taskProvider.moveToTrash(id!);
 
-                          // Show success message
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Task moved to trash'),
-                              backgroundColor: Colors.blue.shade700,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                          try {
+                            await taskProvider.moveToTrash(id!);
+
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+
+                            // Show success message
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Task moved to trash'),
+                                backgroundColor: Colors.blue.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                duration: const Duration(seconds: 2),
+                                action: SnackBarAction(
+                                  label: 'Undo',
+                                  textColor: Colors.white,
+                                  onPressed: () async {
+                                    // Restore the task from trash
+                                    try {
+                                      await taskProvider.restoreFromTrash(id!);
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Failed to restore task: $e'),
+                                          backgroundColor: Colors.red.shade700,
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
                               ),
-                              duration: const Duration(seconds: 2),
-                              action: SnackBarAction(
-                                label: 'Undo',
-                                textColor: Colors.white,
-                                onPressed: () {
-                                  // Restore the task from trash
-                                  taskProvider.restoreFromTrash(id!);
-                                },
+                            );
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                    Text('Failed to move task to trash: $e'),
+                                backgroundColor: Colors.red.shade700,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          }
+                        } else {
+                          Navigator.pop(context);
                         }
-                        Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,

@@ -29,6 +29,7 @@ class TaskProvider with ChangeNotifier {
 
   TaskProvider() {
     fetchTasks();
+    fetchTrashTasks();
   }
 
   List<Task> get tasks => _tasks;
@@ -95,7 +96,8 @@ class TaskProvider with ChangeNotifier {
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('Connection timed out. Please check your server status.');
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
         },
       );
 
@@ -104,14 +106,16 @@ class TaskProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         if (data['users'] != null && data['users'] is List) {
-          _normalUsers = (data['users'] as List).map((user) => {
-            'id': user['_id']?.toString() ?? '',
-            'fullName': user['fullName']?.toString() ?? '',
-            'email': user['email']?.toString() ?? '',
-            'role': user['role']?.toString() ?? 'user',
-          }).toList();
+          _normalUsers = (data['users'] as List)
+              .map((user) => {
+                    'id': user['_id']?.toString() ?? '',
+                    'fullName': user['fullName']?.toString() ?? '',
+                    'email': user['email']?.toString() ?? '',
+                    'role': user['role']?.toString() ?? 'user',
+                  })
+              .toList();
           notifyListeners();
           return _normalUsers;
         } else {
@@ -136,9 +140,8 @@ class TaskProvider with ChangeNotifier {
 
       // Check user role from token
       final parts = token.split('.');
-      final payload = json.decode(
-        utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))
-      );
+      final payload = json
+          .decode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
       final userRole = payload['role']?.toString().toLowerCase();
 
       // Only allow admin users to create tasks
@@ -149,8 +152,10 @@ class TaskProvider with ChangeNotifier {
       // Check if this is a duplicate submission within 1 second
       final now = DateTime.now();
       if (_lastSubmissionTime != null &&
-          now.difference(_lastSubmissionTime!) < const Duration(milliseconds: 500)) {
-        print('Preventing duplicate submission - too soon after last submission');
+          now.difference(_lastSubmissionTime!) <
+              const Duration(milliseconds: 500)) {
+        print(
+            'Preventing duplicate submission - too soon after last submission');
         return false;
       }
 
@@ -193,8 +198,9 @@ class TaskProvider with ChangeNotifier {
 
         // Compare only the date parts without time
         final today = DateTime(now.year, now.month, now.day);
-        final taskDate = DateTime(task.date.year, task.date.month, task.date.day);
-        
+        final taskDate =
+            DateTime(task.date.year, task.date.month, task.date.day);
+
         if (taskDate.isBefore(today)) {
           throw Exception('Due date must be today or a future date');
         }
@@ -236,7 +242,8 @@ class TaskProvider with ChangeNotifier {
         _tasks.add(localTask);
         notifyListeners();
 
-        final response = await http.post(
+        final response = await http
+            .post(
           Uri.parse('$_apiBaseUrl/task'),
           headers: {
             'Content-Type': 'application/json',
@@ -244,10 +251,12 @@ class TaskProvider with ChangeNotifier {
             'token': token,
           },
           body: jsonEncode(requestBody),
-        ).timeout(
+        )
+            .timeout(
           _timeout,
           onTimeout: () {
-            throw TimeoutException('Connection timed out. Please check your server status.');
+            throw TimeoutException(
+                'Connection timed out. Please check your server status.');
           },
         );
 
@@ -259,12 +268,12 @@ class TaskProvider with ChangeNotifier {
 
         if (response.statusCode == 201 || response.statusCode == 200) {
           final responseData = jsonDecode(response.body);
-          
+
           try {
             // Get the task data from the response
             final taskData = responseData['task'];
             Map<String, dynamic> taskMap;
-            
+
             if (taskData is List) {
               // If task is a list but empty, throw an error
               if (taskData.isEmpty) {
@@ -279,18 +288,19 @@ class TaskProvider with ChangeNotifier {
               // If task data is in the root of response
               taskMap = Map<String, dynamic>.from(responseData);
             }
-            
+
             // Create new task from server response
             final serverTask = Task(
               id: taskMap['_id']?.toString() ?? '',
               title: taskMap['title']?.toString() ?? '',
               description: taskMap['description']?.toString() ?? '',
               priority: taskMap['priority']?.toString().toLowerCase() ?? 'low',
-              date: DateTime.tryParse(taskMap['dueDate']?.toString() ?? '') ?? DateTime.now(),
+              date: DateTime.tryParse(taskMap['dueDate']?.toString() ?? '') ??
+                  DateTime.now(),
               stage: taskMap['status']?.toString().toLowerCase() ?? 'todo',
               assignees: assigneesWithDetails,
             );
-            
+
             _tasks.add(serverTask);
             await _saveTasks();
             notifyListeners();
@@ -306,7 +316,9 @@ class TaskProvider with ChangeNotifier {
           if (errorMessage.contains('dueDate')) {
             throw Exception('Task due date must be in the future');
           }
-          throw Exception(responseData['message'] ?? responseData['error'] ?? 'Failed to create task');
+          throw Exception(responseData['message'] ??
+              responseData['error'] ??
+              'Failed to create task');
         }
       } catch (e) {
         print('Error creating task: $e');
@@ -315,7 +327,7 @@ class TaskProvider with ChangeNotifier {
       } finally {
         _isSubmitting = false;
         _isLoading = false;
-    notifyListeners();
+        notifyListeners();
       }
     } catch (e) {
       print('Error creating task: $e');
@@ -341,12 +353,14 @@ class TaskProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
-    _tasks.removeWhere((task) => task.id == id);
-    _saveTasks();
-    notifyListeners();
+        _tasks.removeWhere((task) => task.id == id);
+        _saveTasks();
+        notifyListeners();
       } else {
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? errorData['message'] ?? 'Failed to delete task');
+        throw Exception(errorData['error'] ??
+            errorData['message'] ??
+            'Failed to delete task');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -386,7 +400,7 @@ class TaskProvider with ChangeNotifier {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final taskDate = DateTime(task.date.year, task.date.month, task.date.day);
-      
+
       if (taskDate.isBefore(today)) {
         throw Exception('Due date must be today or a future date');
       }
@@ -419,7 +433,8 @@ class TaskProvider with ChangeNotifier {
 
       print('Updating task with data: ${jsonEncode(taskData)}');
 
-      final response = await http.put(
+      final response = await http
+          .put(
         Uri.parse('$_apiBaseUrl/task/${task.id}'),
         headers: {
           'Content-Type': 'application/json',
@@ -427,10 +442,12 @@ class TaskProvider with ChangeNotifier {
           'Authorization': 'Bearer $token',
         },
         body: jsonEncode(taskData),
-      ).timeout(
+      )
+          .timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('Connection timed out. Please check your server status.');
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
         },
       );
 
@@ -440,27 +457,34 @@ class TaskProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final responseData = jsonDecode(response.body);
         final updatedTaskData = responseData['task'] ?? responseData;
-        
+
         // Create updated task from server response with proper assignee details
         final updatedTask = Task(
           id: task.id,
           title: updatedTaskData['title']?.toString() ?? task.title,
-          description: updatedTaskData['description']?.toString() ?? task.description,
-          priority: updatedTaskData['priority']?.toString().toLowerCase() ?? task.priority,
-          date: DateTime.tryParse(updatedTaskData['dueDate']?.toString() ?? '') ?? task.date,
-          stage: updatedTaskData['status']?.toString().toLowerCase() ?? task.stage,
+          description:
+              updatedTaskData['description']?.toString() ?? task.description,
+          priority: updatedTaskData['priority']?.toString().toLowerCase() ??
+              task.priority,
+          date:
+              DateTime.tryParse(updatedTaskData['dueDate']?.toString() ?? '') ??
+                  task.date,
+          stage:
+              updatedTaskData['status']?.toString().toLowerCase() ?? task.stage,
           assignees: assigneesWithDetails,
         );
 
         final index = _tasks.indexWhere((t) => t.id == task.id);
-    if (index != -1) {
-      _tasks[index] = updatedTask;
+        if (index != -1) {
+          _tasks[index] = updatedTask;
           await _saveTasks();
           notifyListeners();
         }
       } else {
         final errorData = jsonDecode(response.body);
-        throw Exception(errorData['error'] ?? errorData['message'] ?? 'Failed to update task');
+        throw Exception(errorData['error'] ??
+            errorData['message'] ??
+            'Failed to update task');
       }
     } catch (e) {
       print('Error updating task: $e');
@@ -493,22 +517,31 @@ class TaskProvider with ChangeNotifier {
           apiStatus = 'to do';
       }
 
-      final response = await http.put(
-        Uri.parse('$_apiBaseUrl/task/$taskId'),
+      print('Updating task status to: $apiStatus');
+      print('Using endpoint: $_apiBaseUrl/task/$taskId/status');
+
+      final response = await http
+          .patch(
+        Uri.parse('$_apiBaseUrl/task/$taskId/status'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'token': token,
         },
         body: jsonEncode({
           'status': apiStatus,
         }),
-      ).timeout(
+      )
+          .timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('Connection timed out. Please check your server status.');
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
         },
       );
+
+      print('Status update response: ${response.statusCode}');
+      print('Status update body: ${response.body}');
 
       if (response.statusCode == 200) {
         final index = _tasks.indexWhere((task) => task.id == taskId);
@@ -525,25 +558,107 @@ class TaskProvider with ChangeNotifier {
     }
   }
 
-  void moveToTrash(String taskId) {
-    final taskIndex = _tasks.indexWhere((task) => task.id == taskId);
-    if (taskIndex != -1) {
-      final task = _tasks[taskIndex];
-      _tasks.removeAt(taskIndex);
-      _trashTasks.add(task);
-      _saveTasks();
-      notifyListeners();
+  Future<void> moveToTrash(String taskId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Optimistic update - move to trash locally first
+      final taskIndex = _tasks.indexWhere((task) => task.id == taskId);
+      Task? task;
+
+      if (taskIndex != -1) {
+        task = _tasks[taskIndex];
+        _tasks.removeAt(taskIndex);
+        _trashTasks.add(task);
+        notifyListeners();
+      }
+
+      // Call the API to move to trash
+      final response = await http.delete(
+        Uri.parse('$_apiBaseUrl/task/$taskId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Success - save the updated state
+        _saveTasks();
+      } else {
+        // Revert the optimistic update if the API call fails
+        if (task != null && taskIndex != -1) {
+          _trashTasks.remove(task);
+          _tasks.insert(taskIndex, task);
+          notifyListeners();
+        }
+        throw Exception('Failed to move task to trash: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error moving task to trash: $e');
+      rethrow;
     }
   }
 
-  void restoreFromTrash(String taskId) {
-    final taskIndex = _trashTasks.indexWhere((task) => task.id == taskId);
-    if (taskIndex != -1) {
-      final task = _trashTasks[taskIndex];
-      _trashTasks.removeAt(taskIndex);
-      _tasks.add(task);
-      _saveTasks();
-      notifyListeners();
+  Future<void> restoreFromTrash(String taskId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Optimistic update - restore locally first
+      final taskIndex = _trashTasks.indexWhere((task) => task.id == taskId);
+      Task? task;
+
+      if (taskIndex != -1) {
+        task = _trashTasks[taskIndex];
+        _trashTasks.removeAt(taskIndex);
+        _tasks.add(task);
+        notifyListeners();
+      }
+
+      // Call the API to restore the task
+      final response = await http.patch(
+        Uri.parse('$_apiBaseUrl/task/$taskId/restore'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Success - save the updated state
+        _saveTasks();
+      } else {
+        // Revert the optimistic update if the API call fails
+        if (task != null) {
+          _tasks.remove(task);
+          _trashTasks.insert(taskIndex, task);
+          notifyListeners();
+        }
+        throw Exception('Failed to restore task from trash: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error restoring task from trash: $e');
+      rethrow;
     }
   }
 
@@ -553,10 +668,97 @@ class TaskProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void clearTrash() {
-    _trashTasks.clear();
-    _saveTasks();
-    notifyListeners();
+  Future<void> permanentlyDeleteTaskFromBackend(String taskId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Optimistic update - remove from local state first
+      final taskIndex = _trashTasks.indexWhere((task) => task.id == taskId);
+      Task? task;
+
+      if (taskIndex != -1) {
+        task = _trashTasks[taskIndex];
+        _trashTasks.removeAt(taskIndex);
+        notifyListeners();
+      }
+
+      // Call the API to permanently delete the task
+      final response = await http.delete(
+        Uri.parse('$_apiBaseUrl/task/$taskId/trash'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Success - save the updated state
+        _saveTasks();
+      } else {
+        // Revert the optimistic update if the API call fails
+        if (task != null) {
+          _trashTasks.insert(taskIndex, task);
+          notifyListeners();
+        }
+        throw Exception('Failed to delete task permanently: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error deleting task permanently: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> clearTrash() async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      // Optimistic update - clear local trash first
+      final trashTasksCopy = List<Task>.from(_trashTasks);
+      _trashTasks.clear();
+      notifyListeners();
+
+      // Call the API to empty trash
+      final response = await http.delete(
+        Uri.parse('$_apiBaseUrl/task/trash/empty'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        // Success - save the updated state
+        _saveTasks();
+      } else {
+        // Revert the optimistic update if the API call fails
+        _trashTasks.addAll(trashTasksCopy);
+        notifyListeners();
+        throw Exception('Failed to clear trash: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error clearing trash: $e');
+      rethrow;
+    }
   }
 
   // Save tasks to SharedPreferences
@@ -595,6 +797,123 @@ class TaskProvider with ChangeNotifier {
     return prefs.getString('userId');
   }
 
+  Future<void> fetchTrashTasks() async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('Authentication required');
+      }
+
+      // Call the API to get trash tasks
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/task/trash'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['tasks'] != null) {
+          final List<dynamic> tasksJson =
+              data['tasks'] is List ? data['tasks'] : [];
+
+          _trashTasks.clear();
+
+          if (tasksJson.isNotEmpty) {
+            final fetchedTasks = tasksJson
+                .map((taskJson) {
+                  try {
+                    // Ensure the task has all required fields
+                    if (taskJson['_id'] == null) {
+                      return null;
+                    }
+
+                    // Convert server response format to Task model format
+                    final task = Task(
+                      id: taskJson['_id']?.toString() ?? '',
+                      title: taskJson['title']?.toString() ?? '',
+                      description: taskJson['description']?.toString() ?? '',
+                      priority:
+                          taskJson['priority']?.toString().toLowerCase() ??
+                              'low',
+                      date: DateTime.tryParse(
+                              taskJson['dueDate']?.toString() ?? '') ??
+                          DateTime.now(),
+                      stage: taskJson['status']?.toString().toLowerCase() ??
+                          'todo',
+                      assignees:
+                          (taskJson['assignedTo'] as List?)?.map((assignee) {
+                                if (assignee is Map<String, dynamic>) {
+                                  return {
+                                    'id': assignee['_id']?.toString() ?? '',
+                                    'fullName':
+                                        assignee['fullName']?.toString() ?? '',
+                                    'email':
+                                        assignee['email']?.toString() ?? '',
+                                  };
+                                } else {
+                                  return {
+                                    'id': assignee.toString(),
+                                    'fullName': '',
+                                    'email': '',
+                                  };
+                                }
+                              }).toList() ??
+                              [],
+                    );
+
+                    return task;
+                  } catch (e) {
+                    debugPrint('Error processing trash task: $e');
+                    return null;
+                  }
+                })
+                .where((task) => task != null)
+                .cast<Task>()
+                .toList();
+
+            _trashTasks.addAll(fetchedTasks);
+          }
+
+          _error = null;
+        }
+      } else {
+        final errorData = jsonDecode(response.body);
+        _error = errorData['message'] ??
+            errorData['error'] ??
+            'Failed to fetch trash tasks';
+        throw Exception(_error);
+      }
+    } catch (e) {
+      debugPrint('Error fetching trash tasks: $e');
+      if (e is SocketException) {
+        _error =
+            'Cannot connect to server. Please check if the server is running.';
+      } else if (e is TimeoutException) {
+        _error = 'Connection timed out. Please check your server status.';
+      } else {
+        _error = e.toString();
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchTasks() async {
     try {
       _isLoading = true;
@@ -602,7 +921,7 @@ class TaskProvider with ChangeNotifier {
       notifyListeners();
 
       final token = await _getToken();
-      
+
       if (token == null) {
         throw Exception('Authentication required');
       }
@@ -613,12 +932,11 @@ class TaskProvider with ChangeNotifier {
         throw Exception('Invalid token format');
       }
 
-      final payload = json.decode(
-        utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))
-      );
-      
+      final payload = json
+          .decode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+
       print('Token payload: $payload');
-      
+
       final userId = payload['userId']?.toString();
       final isAdmin = payload['role']?.toString().toLowerCase() == 'admin';
 
@@ -639,12 +957,13 @@ class TaskProvider with ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'token': token,
         },
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('Connection timed out. Please check your server status.');
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
         },
       );
 
@@ -655,61 +974,73 @@ class TaskProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('Decoded data: $data');
-        
+
         if (data['tasks'] != null) {
-          final List<dynamic> tasksJson = data['tasks'] is List ? data['tasks'] : [];
+          final List<dynamic> tasksJson =
+              data['tasks'] is List ? data['tasks'] : [];
           print('Tasks JSON: $tasksJson');
-          
+
           if (tasksJson.isEmpty) {
             print('No tasks found for user $userId');
             _tasks = [];
             _error = null;
             return;
           }
-          
-          _tasks = tasksJson.map((taskJson) {
-            print('Processing task: $taskJson');
-            try {
-              // Ensure the task has all required fields
-              if (taskJson['_id'] == null) {
-                print('Task missing ID: $taskJson');
-                return null;
-              }
-              
-              // Convert server response format to Task model format
-              final task = Task(
-                id: taskJson['_id']?.toString() ?? '',
-                title: taskJson['title']?.toString() ?? '',
-                description: taskJson['description']?.toString() ?? '',
-                priority: taskJson['priority']?.toString().toLowerCase() ?? 'low',
-                date: DateTime.tryParse(taskJson['dueDate']?.toString() ?? '') ?? DateTime.now(),
-                stage: taskJson['status']?.toString().toLowerCase() ?? 'todo',
-                assignees: (taskJson['assignedTo'] as List?)?.map((assignee) {
-                  if (assignee is Map<String, dynamic>) {
-                    return {
-                      'id': assignee['_id']?.toString() ?? '',
-                      'fullName': assignee['fullName']?.toString() ?? '',
-                      'email': assignee['email']?.toString() ?? '',
-                    };
-                  } else {
-                    return {
-                      'id': assignee.toString(),
-                      'fullName': '',
-                      'email': '',
-                    };
+
+          _tasks = tasksJson
+              .map((taskJson) {
+                print('Processing task: $taskJson');
+                try {
+                  // Ensure the task has all required fields
+                  if (taskJson['_id'] == null) {
+                    print('Task missing ID: $taskJson');
+                    return null;
                   }
-                }).toList() ?? [],
-              );
-              
-              print('Created task: ${task.toJson()}');
-              return task;
-            } catch (e) {
-              print('Error processing task: $e');
-              print('Task JSON that caused error: $taskJson');
-              return null;
-            }
-          }).where((task) => task != null).cast<Task>().toList();
-          
+
+                  // Convert server response format to Task model format
+                  final task = Task(
+                    id: taskJson['_id']?.toString() ?? '',
+                    title: taskJson['title']?.toString() ?? '',
+                    description: taskJson['description']?.toString() ?? '',
+                    priority:
+                        taskJson['priority']?.toString().toLowerCase() ?? 'low',
+                    date: DateTime.tryParse(
+                            taskJson['dueDate']?.toString() ?? '') ??
+                        DateTime.now(),
+                    stage:
+                        taskJson['status']?.toString().toLowerCase() ?? 'todo',
+                    assignees:
+                        (taskJson['assignedTo'] as List?)?.map((assignee) {
+                              if (assignee is Map<String, dynamic>) {
+                                return {
+                                  'id': assignee['_id']?.toString() ?? '',
+                                  'fullName':
+                                      assignee['fullName']?.toString() ?? '',
+                                  'email': assignee['email']?.toString() ?? '',
+                                };
+                              } else {
+                                return {
+                                  'id': assignee.toString(),
+                                  'fullName': '',
+                                  'email': '',
+                                };
+                              }
+                            }).toList() ??
+                            [],
+                  );
+
+                  print('Created task: ${task.toJson()}');
+                  return task;
+                } catch (e) {
+                  print('Error processing task: $e');
+                  print('Task JSON that caused error: $taskJson');
+                  return null;
+                }
+              })
+              .where((task) => task != null)
+              .cast<Task>()
+              .toList();
+
           print('Final tasks count: ${_tasks.length}');
           _error = null;
         } else {
@@ -719,21 +1050,24 @@ class TaskProvider with ChangeNotifier {
         }
       } else {
         final errorData = jsonDecode(response.body);
-        _error = errorData['message'] ?? errorData['error'] ?? 'Failed to fetch tasks';
-        
+        _error = errorData['message'] ??
+            errorData['error'] ??
+            'Failed to fetch tasks';
+
         // If unauthorized, clear the token
         if (response.statusCode == 401) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.remove(_tokenKey);
           print('Cleared invalid token');
         }
-        
+
         throw Exception(_error);
       }
     } catch (e) {
       print('Error fetching tasks: $e');
       if (e is SocketException) {
-        _error = 'Cannot connect to server. Please check if the server is running.';
+        _error =
+            'Cannot connect to server. Please check if the server is running.';
       } else if (e is TimeoutException) {
         _error = 'Connection timed out. Please check your server status.';
       } else {
@@ -761,12 +1095,13 @@ class TaskProvider with ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'token': token,
         },
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw TimeoutException('Connection timed out. Please check your server status.');
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
         },
       );
 
@@ -778,44 +1113,48 @@ class TaskProvider with ChangeNotifier {
         if (data['users'] != null && data['users'] is List) {
           // Filter out admin users and map to the correct format
           final users = (data['users'] as List)
-            .where((user) => user['role']?.toString().toLowerCase() == 'user')
-            .map((user) {
-              print('Raw user data: $user'); // Debug log
-              
-              // Get the full name from the user data
-              String fullName = user['fullName']?.toString() ?? '';
-              
-              // If fullName is empty, try to get it from name field
-              if (fullName.isEmpty) {
-                fullName = user['name']?.toString() ?? '';
+              .where((user) => user['role']?.toString().toLowerCase() == 'user')
+              .map((user) {
+            print('Raw user data: $user'); // Debug log
+
+            // Get the full name from the user data
+            String fullName = user['fullName']?.toString() ?? '';
+
+            // If fullName is empty, try to get it from name field
+            if (fullName.isEmpty) {
+              fullName = user['name']?.toString() ?? '';
+            }
+
+            // If still empty, generate from email
+            if (fullName.isEmpty) {
+              final email = user['email']?.toString() ?? '';
+              if (email.isNotEmpty) {
+                // Extract username part before @
+                final username = email.split('@')[0];
+                // Split by common separators and capitalize each part
+                fullName = username
+                    .split(RegExp(r'[._-]'))
+                    .where((part) => part.isNotEmpty)
+                    .map((part) =>
+                        part[0].toUpperCase() + part.substring(1).toLowerCase())
+                    .join(' ');
               }
-              
-              // If still empty, generate from email
-              if (fullName.isEmpty) {
-                final email = user['email']?.toString() ?? '';
-                if (email.isNotEmpty) {
-                  // Extract username part before @
-                  final username = email.split('@')[0];
-                  // Split by common separators and capitalize each part
-                  fullName = username.split(RegExp(r'[._-]'))
-                      .where((part) => part.isNotEmpty)
-                      .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
-                      .join(' ');
-                }
-              }
-              
-              // If still empty, use a default name
-              if (fullName.isEmpty) {
-                fullName = 'User ${user['_id']?.toString().substring(0, 4) ?? ''}';
-              }
-              
-              return <String, dynamic>{
-                '_id': user['_id']?.toString() ?? '',
-                'fullName': fullName,
-                'email': user['email']?.toString() ?? '',
-                'role': user['role']?.toString() ?? 'user'
-              };
-            }).toList();
+            }
+
+            // If still empty, use a default name
+            if (fullName.isEmpty) {
+              fullName =
+                  'User ${user['_id']?.toString().substring(0, 4) ?? ''}';
+            }
+
+            return <String, dynamic>{
+              '_id': user['_id']?.toString() ?? '',
+              'fullName': fullName,
+              'email': user['email']?.toString() ?? '',
+              'role': user['role']?.toString() ?? 'user',
+              'jobTitle': user['jobTitle']?.toString() ?? 'Employee'
+            };
+          }).toList();
 
           print('Processed users: $users'); // Debug log
           return users;
@@ -824,7 +1163,9 @@ class TaskProvider with ChangeNotifier {
         }
       } else {
         final errorData = json.decode(response.body);
-        throw Exception(errorData['message'] ?? errorData['error'] ?? 'Failed to load users');
+        throw Exception(errorData['message'] ??
+            errorData['error'] ??
+            'Failed to load users');
       }
     } catch (e) {
       print('Error in getNormalUsers: $e');
@@ -843,12 +1184,13 @@ class TaskProvider with ChangeNotifier {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
+        'token': token,
       },
     ).timeout(
       const Duration(seconds: 10),
       onTimeout: () {
-        throw TimeoutException('Connection timed out. Please check your server status.');
+        throw TimeoutException(
+            'Connection timed out. Please check your server status.');
       },
     );
 
@@ -863,7 +1205,9 @@ class TaskProvider with ChangeNotifier {
       }
     } else {
       final errorData = json.decode(response.body);
-      throw Exception(errorData['message'] ?? errorData['error'] ?? 'Failed to load task details');
+      throw Exception(errorData['message'] ??
+          errorData['error'] ??
+          'Failed to load task details');
     }
   }
 
@@ -872,9 +1216,18 @@ class TaskProvider with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('Authentication token not found');
+      }
+
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:3000/api/tasks'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$_apiBaseUrl/task'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
         body: jsonEncode(task.toJson()),
       );
 

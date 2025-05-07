@@ -169,6 +169,19 @@ class TeamMemberCard extends StatelessWidget {
                         color: Color(0xFF6B7280),
                       ),
                     ),
+                    if (member['jobTitle'] != null &&
+                        member['jobTitle'].toString().isNotEmpty &&
+                        member['jobTitle'] != 'Not specified') ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        member['jobTitle'],
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -200,4 +213,4 @@ class TeamMemberCard extends StatelessWidget {
       ),
     );
   }
-} 
+}

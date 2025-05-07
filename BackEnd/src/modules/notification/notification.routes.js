@@ -1,5 +1,11 @@
 import { Router } from "express";
-import { addNotification, getUserNotification, deleteNotification, getSingleNotification } from "./notification.controller.js";
+import {
+    addNotification,
+    getUserNotification,
+    deleteNotification,
+    getSingleNotification,
+    deleteAllUserNotifications
+} from "./notification.controller.js";
 import { protectedRoute } from "../../middleware/protectedRoute.js";
 import { isAllowedTo } from "../../middleware/isAllowedTo.js";
 import { checkUsers } from "../../middleware/checkUsers.js";
@@ -29,5 +35,12 @@ notificationRouter.route('/:id')
         validate(getUserNotificationValidation, 'params'), // tell it to validate `params`
         getUserNotification
     )
-
     .delete(protectedRoute, isAllowedTo('user', 'admin'), deleteNotification)
+
+// Route for deleting all notifications for a user
+notificationRouter.route('/user/:userId/all')
+    .delete(
+        protectedRoute,
+        isAllowedTo('user', 'admin'),
+        deleteAllUserNotifications
+    )

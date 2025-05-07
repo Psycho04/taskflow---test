@@ -11,12 +11,13 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isPasswordVisible = false;  // Add this line
-  
+  bool _isPasswordVisible = false; // Add this line
+
   bool _isLoading = false;
   String? _errorMessage;
   late AnimationController _animationController;
@@ -75,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     try {
       print('Attempting to login with email: ${_emailController.text}');
-      
+
       final response = await http.post(
         Uri.parse('http://10.0.2.2:5000/api/auth/signin'),
         headers: {
@@ -112,7 +113,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       } else {
         if (!mounted) return;
         setState(() {
-          _errorMessage = data['message'] ?? 'Login failed. Please check your credentials.';
+          _errorMessage =
+              data['message'] ?? 'Login failed. Please check your credentials.';
         });
       }
     } catch (e) {
@@ -120,7 +122,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (!mounted) return;
       setState(() {
         if (e is http.ClientException) {
-          _errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+          _errorMessage =
+              'Unable to connect to the server. Please check your internet connection.';
         } else {
           _errorMessage = 'Login failed. Please try again.';
         }
@@ -171,7 +174,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     if (_errorMessage != null)
                       FadeTransition(
                         opacity: _fadeAnimation,
@@ -184,7 +186,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade400),
+                              Icon(Icons.error_outline,
+                                  color: Colors.red.shade400),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
@@ -199,7 +202,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
                         ),
                       ),
-
                     const SizedBox(height: 24),
                     Form(
                       key: _formKey,
@@ -239,9 +241,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(
-                                    _isPasswordVisible 
-                                      ? Icons.visibility 
-                                      : Icons.visibility_off,
+                                    _isPasswordVisible
+                                        ? Icons.visibility
+                                        : Icons.visibility_off,
                                   ),
                                   onPressed: () {
                                     setState(() {

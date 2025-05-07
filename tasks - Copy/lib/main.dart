@@ -5,6 +5,7 @@ import 'package:tasks/auth/login.dart';
 import 'package:tasks/auth/register.dart';
 import 'package:tasks/pages/home/home.dart';
 import 'package:tasks/providers/task_provider.dart';
+import 'package:tasks/providers/notification_provider.dart';
 
 void main() async {
   // Ensure Flutter is initialized
@@ -24,6 +25,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => TaskProvider()),
+        ChangeNotifierProvider(create: (context) => NotificationProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

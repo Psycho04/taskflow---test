@@ -25,11 +25,11 @@ export const getUserNotification = catchError(async (req, res, next) => {
 export const deleteNotification = catchError(async (req, res, next) => {
     const { id } = req.params;
     const notification = await Notifications.findByIdAndDelete(id);
-    
+
     if (!notification) {
         return next(new AppError('Notification not found', 404));
     }
-    
+
     res.json({ message: "Notification deleted successfully" });
 })
 
@@ -37,8 +37,8 @@ export const getSingleNotification = catchError(async (req, res, next) => {
     const { id } = req.params;
     // Find the notification, update its isRead status to true, and populate the related task
     const notification = await Notifications.findByIdAndUpdate(
-        id, 
-        { isRead: true }, 
+        id,
+        { isRead: true },
         { new: true }
     ).populate('relatedTask')
      .populate('createdBy', 'name email image');
@@ -53,4 +53,21 @@ export const getSingleNotification = catchError(async (req, res, next) => {
     // }
 
     res.json({ message: "success", notification });
+})
+
+export const deleteAllUserNotifications = catchError(async (req, res, next) => {
+    const { userId } = req.params;
+
+    // Ensure the user can only delete their own notifications
+    if (userId !== req.user._id.toString() && req.user.role !== 'admin') {
+        return next(new AppError('You are not authorized to delete these notifications', 403));
+    }
+
+    // Delete all notifications assigned to this user
+    const result = await Notifications.deleteMany({ assignedTo: userId });
+
+    res.json({
+        message: "All notifications deleted successfully",
+        count: result.deletedCount
+    });
 })

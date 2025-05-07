@@ -3,8 +3,22 @@ import 'package:provider/provider.dart';
 import 'package:tasks/models/task.dart';
 import 'package:tasks/providers/task_provider.dart';
 
-class Trash extends StatelessWidget {
+class Trash extends StatefulWidget {
   const Trash({super.key});
+
+  @override
+  State<Trash> createState() => _TrashState();
+}
+
+class _TrashState extends State<Trash> {
+  @override
+  void initState() {
+    super.initState();
+    // Fetch trash tasks when the page is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<TaskProvider>(context, listen: false).fetchTrashTasks();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,13 +102,13 @@ class Trash extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Trash content
             Expanded(
               child: Consumer<TaskProvider>(
                 builder: (context, taskProvider, child) {
                   final trashTasks = taskProvider.trashTasks;
-                  
+
                   if (trashTasks.isEmpty) {
                     return Center(
                       child: Column(
@@ -133,12 +147,13 @@ class Trash extends StatelessWidget {
                       ),
                     );
                   }
-                  
+
                   return Column(
                     children: [
                       // Stats and Clear all button
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
@@ -153,7 +168,8 @@ class Trash extends StatelessWidget {
                         child: Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(20),
@@ -179,7 +195,8 @@ class Trash extends StatelessWidget {
                             ),
                             const Spacer(),
                             TextButton.icon(
-                              onPressed: () => _showRestoreAllConfirmation(context),
+                              onPressed: () =>
+                                  _showRestoreAllConfirmation(context),
                               icon: Icon(
                                 Icons.restore,
                                 size: 18,
@@ -193,7 +210,8 @@ class Trash extends StatelessWidget {
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -201,7 +219,8 @@ class Trash extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             TextButton.icon(
-                              onPressed: () => _showClearTrashConfirmation(context),
+                              onPressed: () =>
+                                  _showClearTrashConfirmation(context),
                               icon: Icon(
                                 Icons.delete_sweep,
                                 size: 18,
@@ -215,7 +234,8 @@ class Trash extends StatelessWidget {
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -225,7 +245,7 @@ class Trash extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // Tasks list
                       Expanded(
                         child: ListView.builder(
@@ -246,7 +266,7 @@ class Trash extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildTrashTaskItem(BuildContext context, Task task) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -292,7 +312,8 @@ class Trash extends StatelessWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
@@ -319,15 +340,17 @@ class Trash extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Task details
                 Row(
                   children: [
                     // Priority badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _getPriorityColor(task.priority).withOpacity(0.1),
+                        color:
+                            _getPriorityColor(task.priority).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -355,10 +378,11 @@ class Trash extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    
+
                     // Stage badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade50,
                         borderRadius: BorderRadius.circular(12),
@@ -373,7 +397,7 @@ class Trash extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    
+
                     // Action buttons
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -381,21 +405,39 @@ class Trash extends StatelessWidget {
                         Tooltip(
                           message: 'Restore task',
                           child: IconButton(
-                            onPressed: () {
-                              final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-                              taskProvider.restoreFromTrash(task.id);
-                              
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Task restored'),
-                                  backgroundColor: Colors.green.shade700,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                            onPressed: () async {
+                              final taskProvider = Provider.of<TaskProvider>(
+                                  context,
+                                  listen: false);
+
+                              try {
+                                await taskProvider.restoreFromTrash(task.id);
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Task restored'),
+                                    backgroundColor: Colors.green.shade700,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    duration: const Duration(seconds: 2),
                                   ),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to restore task: $e'),
+                                    backgroundColor: Colors.red.shade700,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                             icon: Icon(
                               Icons.restore,
@@ -415,7 +457,8 @@ class Trash extends StatelessWidget {
                         Tooltip(
                           message: 'Delete permanently',
                           child: IconButton(
-                            onPressed: () => _showPermanentDeleteConfirmation(context, task),
+                            onPressed: () =>
+                                _showPermanentDeleteConfirmation(context, task),
                             icon: Icon(
                               Icons.delete_forever,
                               color: Colors.red.shade600,
@@ -441,7 +484,7 @@ class Trash extends StatelessWidget {
       ),
     );
   }
-  
+
   Color _getPriorityColor(String priority) {
     switch (priority.toLowerCase()) {
       case 'high':
@@ -454,7 +497,7 @@ class Trash extends StatelessWidget {
         return Colors.grey;
     }
   }
-  
+
   void _showPermanentDeleteConfirmation(BuildContext context, Task task) {
     showDialog(
       context: context,
@@ -546,22 +589,43 @@ class Trash extends StatelessWidget {
                   const SizedBox(width: 15),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-                        taskProvider.permanentlyDeleteTask(task.id);
-                        Navigator.pop(context);
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Task permanently deleted'),
-                            backgroundColor: Colors.red.shade700,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      onPressed: () async {
+                        final taskProvider =
+                            Provider.of<TaskProvider>(context, listen: false);
+
+                        try {
+                          await taskProvider
+                              .permanentlyDeleteTaskFromBackend(task.id);
+
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Task permanently deleted'),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              duration: const Duration(seconds: 2),
                             ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to delete task: $e'),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
@@ -589,7 +653,7 @@ class Trash extends StatelessWidget {
       ),
     );
   }
-  
+
   void _showClearTrashConfirmation(BuildContext context) {
     showDialog(
       context: context,
@@ -681,22 +745,42 @@ class Trash extends StatelessWidget {
                   const SizedBox(width: 15),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-                        taskProvider.clearTrash();
-                        Navigator.pop(context);
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Trash cleared'),
-                            backgroundColor: Colors.red.shade700,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      onPressed: () async {
+                        final taskProvider =
+                            Provider.of<TaskProvider>(context, listen: false);
+
+                        try {
+                          await taskProvider.clearTrash();
+
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Trash cleared'),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              duration: const Duration(seconds: 2),
                             ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to clear trash: $e'),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
@@ -806,28 +890,53 @@ class Trash extends StatelessWidget {
                   const SizedBox(width: 15),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () {
-                        final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-                        final trashTasks = taskProvider.trashTasks;
-                        
-                        // Restore all tasks
-                        for (final task in trashTasks) {
-                          taskProvider.restoreFromTrash(task.id);
+                      onPressed: () async {
+                        final taskProvider =
+                            Provider.of<TaskProvider>(context, listen: false);
+                        final trashTasks =
+                            List<Task>.from(taskProvider.trashTasks);
+
+                        if (trashTasks.isEmpty) {
+                          Navigator.pop(context);
+                          return;
                         }
-                        
-                        Navigator.pop(context);
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${trashTasks.length} tasks restored'),
-                            backgroundColor: Colors.green.shade700,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+
+                        try {
+                          // Restore all tasks one by one
+                          for (final task in trashTasks) {
+                            await taskProvider.restoreFromTrash(task.id);
+                          }
+
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  Text('${trashTasks.length} tasks restored'),
+                              backgroundColor: Colors.green.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              duration: const Duration(seconds: 2),
                             ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to restore all tasks: $e'),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green.shade600,
