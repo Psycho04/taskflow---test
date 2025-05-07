@@ -4,6 +4,7 @@ class Notification {
   final bool isRead;
   final String type;
   final String? relatedTaskId;
+  final String? relatedMessageId;
   final String? createdById;
   final String? createdByName;
   final String? createdByEmail;
@@ -16,6 +17,7 @@ class Notification {
     required this.isRead,
     required this.type,
     this.relatedTaskId,
+    this.relatedMessageId,
     this.createdById,
     this.createdByName,
     this.createdByEmail,
@@ -31,6 +33,7 @@ class Notification {
       'isRead': isRead,
       'type': type,
       'relatedTaskId': relatedTaskId,
+      'relatedMessageId': relatedMessageId,
       'createdById': createdById,
       'createdByName': createdByName,
       'createdByEmail': createdByEmail,
@@ -51,12 +54,22 @@ class Notification {
       }
     }
 
+    // Handle the relatedMessage which might be an object or just an ID
+    String? relatedMessageId;
+    if (json['relatedMessage'] != null) {
+      if (json['relatedMessage'] is Map) {
+        relatedMessageId = json['relatedMessage']['_id']?.toString();
+      } else {
+        relatedMessageId = json['relatedMessage']?.toString();
+      }
+    }
+
     // Handle the createdBy which might be an object or just an ID
     String? createdById;
     String? createdByName;
     String? createdByEmail;
     String? createdByImage;
-    
+
     if (json['createdBy'] != null) {
       if (json['createdBy'] is Map) {
         createdById = json['createdBy']['_id']?.toString();
@@ -74,11 +87,13 @@ class Notification {
       isRead: json['isRead'] == true,
       type: json['type']?.toString() ?? 'general',
       relatedTaskId: relatedTaskId,
+      relatedMessageId: relatedMessageId,
       createdById: createdById,
       createdByName: createdByName,
       createdByEmail: createdByEmail,
       createdByImage: createdByImage,
-      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 
@@ -88,6 +103,7 @@ class Notification {
     bool? isRead,
     String? type,
     String? relatedTaskId,
+    String? relatedMessageId,
     String? createdById,
     String? createdByName,
     String? createdByEmail,
@@ -100,6 +116,7 @@ class Notification {
       isRead: isRead ?? this.isRead,
       type: type ?? this.type,
       relatedTaskId: relatedTaskId ?? this.relatedTaskId,
+      relatedMessageId: relatedMessageId ?? this.relatedMessageId,
       createdById: createdById ?? this.createdById,
       createdByName: createdByName ?? this.createdByName,
       createdByEmail: createdByEmail ?? this.createdByEmail,

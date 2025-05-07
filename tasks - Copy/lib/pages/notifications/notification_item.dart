@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tasks/models/notification.dart' as app_notification;
 import 'package:intl/intl.dart';
 import 'package:tasks/pages/tasks/widgets/task_details_dialog.dart';
+import 'package:tasks/pages/inbox/chat_screen.dart';
 
 class NotificationItem extends StatelessWidget {
   final app_notification.Notification notification;
@@ -29,6 +30,8 @@ class NotificationItem extends StatelessWidget {
         return Icons.restore;
       case 'task_deleted':
         return Icons.delete_forever;
+      case 'message_received':
+        return Icons.chat;
       case 'general':
       default:
         return Icons.notifications;
@@ -49,6 +52,8 @@ class NotificationItem extends StatelessWidget {
         return Colors.purple;
       case 'task_deleted':
         return Colors.red.shade900;
+      case 'message_received':
+        return Colors.teal;
       case 'general':
       default:
         return Colors.grey;
@@ -100,6 +105,22 @@ class NotificationItem extends StatelessWidget {
               context: context,
               builder: (context) => TaskDetailsDialog(
                 taskId: notification.relatedTaskId!,
+              ),
+            );
+          }
+          // If there's a related message, navigate to the chat screen
+          else if (notification.type == 'message_received' &&
+              notification.createdById != null) {
+            // Close the notification dialog first
+            Navigator.of(context, rootNavigator: true).pop();
+            // Navigate to the chat screen with the sender's ID
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(
+                  userId: notification.createdById!,
+                  userName: notification.createdByName,
+                ),
               ),
             );
           }
@@ -247,6 +268,8 @@ class NotificationItem extends StatelessWidget {
         return 'Task Restored';
       case 'task_deleted':
         return 'Task Deleted';
+      case 'message_received':
+        return 'New Message';
       case 'general':
       default:
         return 'General Notification';

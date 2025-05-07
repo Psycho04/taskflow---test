@@ -9,7 +9,7 @@ import 'package:http/http.dart' as http;
 class TaskProvider with ChangeNotifier {
   List<Task> _tasks = [];
   final List<Task> _trashTasks = [];
-  List<Map<String, String>> _normalUsers = [];
+  List<Map<String, dynamic>> _normalUsers = [];
   static const String _tasksKey = 'tasks';
   static const String _trashTasksKey = 'trash_tasks';
   static const String _baseUrl = 'http://localhost:5000/api';
@@ -75,23 +75,24 @@ class TaskProvider with ChangeNotifier {
     return sortedTasks.take(3).toList();
   }
 
-  List<Map<String, String>> get normalUsers => _normalUsers;
+  List<Map<String, dynamic>> get normalUsers => _normalUsers;
 
-  Future<List<Map<String, String>>> fetchNormalUsers() async {
+  // Method to fetch all users including admins
+  Future<List<Map<String, dynamic>>> fetchAllUsers() async {
     try {
       final token = await _getToken();
       if (token == null) {
         throw Exception('Authentication required');
       }
 
-      print('Fetching normal users from: $_apiBaseUrl/user/normalUsers');
+      print('Fetching all users from: $_apiBaseUrl/user');
 
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/user/normalUsers'),
+        Uri.parse('$_apiBaseUrl/user'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'token': token,
         },
       ).timeout(
         const Duration(seconds: 10),
@@ -108,16 +109,85 @@ class TaskProvider with ChangeNotifier {
         final data = jsonDecode(response.body);
 
         if (data['users'] != null && data['users'] is List) {
-          _normalUsers = (data['users'] as List)
+          final users = (data['users'] as List)
               .map((user) => {
                     'id': user['_id']?.toString() ?? '',
-                    'fullName': user['fullName']?.toString() ?? '',
+                    'name': user['name']?.toString() ?? '',
                     'email': user['email']?.toString() ?? '',
                     'role': user['role']?.toString() ?? 'user',
+                    'image': user['image']?.toString(),
+                    'jobTitle': user['jobTitle']?.toString() ?? '',
                   })
               .toList();
+
+          return users;
+        } else {
+          throw Exception('Invalid response format from server');
+        }
+      } else {
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? 'Failed to fetch users');
+      }
+    } catch (e) {
+      print('Error fetching all users: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNormalUsers() async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('Authentication required');
+      }
+
+      print('Fetching normal users from: $_apiBaseUrl/user/normal');
+
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/user/normal'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'token': token,
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException(
+              'Connection timed out. Please check your server status.');
+        },
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['users'] != null && data['users'] is List) {
+          final users = (data['users'] as List)
+              .map((user) => {
+                    'id': user['_id']?.toString() ?? '',
+                    'name': user['name']?.toString() ?? '',
+                    'email': user['email']?.toString() ?? '',
+                    'role': user['role']?.toString() ?? 'user',
+                    'image': user['image']?.toString(),
+                    'jobTitle': user['jobTitle']?.toString() ?? '',
+                  })
+              .toList();
+
+          // Update the internal list
+          _normalUsers = users
+              .map((user) => {
+                    'id': user['id'],
+                    'name': user['name'],
+                    'email': user['email'],
+                    'role': user['role'],
+                  })
+              .toList();
+
           notifyListeners();
-          return _normalUsers;
+          return users;
         } else {
           throw Exception('Invalid response format from server');
         }
@@ -348,7 +418,7 @@ class TaskProvider with ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': token,
+          'token': token,
         },
       );
 
@@ -439,7 +509,7 @@ class TaskProvider with ChangeNotifier {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
+          'token': token,
         },
         body: jsonEncode(taskData),
       )
@@ -1149,7 +1219,7 @@ class TaskProvider with ChangeNotifier {
 
             return <String, dynamic>{
               '_id': user['_id']?.toString() ?? '',
-              'fullName': fullName,
+              'name': fullName,
               'email': user['email']?.toString() ?? '',
               'role': user['role']?.toString() ?? 'user',
               'jobTitle': user['jobTitle']?.toString() ?? 'Employee'

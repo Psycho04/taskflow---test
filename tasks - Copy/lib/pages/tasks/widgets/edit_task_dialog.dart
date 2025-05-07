@@ -24,9 +24,9 @@ class _EditTaskDialogState extends State<EditTaskDialog> {
   late DateTime _selectedDate;
   late String _selectedPriority;
   late String _selectedStage;
-  List<Map<String, String>> _selectedAssignees = [];
+  List<Map<String, dynamic>> _selectedAssignees = [];
   bool _isLoading = false;
-  List<Map<String, String>> _users = [];
+  List<Map<String, dynamic>> _users = [];
   String? _errorMessage;
   final List<String> _priorities = ['High', 'Medium', 'Low'];
 

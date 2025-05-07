@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:tasks/providers/notification_provider.dart';
+import 'package:tasks/providers/inbox_provider.dart';
 import 'package:tasks/pages/notifications/notification_dialog.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
@@ -23,11 +24,12 @@ class _CustomAppBarState extends State<CustomAppBar> {
     super.initState();
     _loadUserData();
 
-    // Fetch notifications when the app bar initializes
-    Future.microtask(() {
+    // Use addPostFrameCallback to ensure the widget is fully built before calling providers
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         Provider.of<NotificationProvider>(context, listen: false)
             .fetchNotifications();
+        Provider.of<InboxProvider>(context, listen: false).fetchSenders();
       }
     });
   }
@@ -65,6 +67,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
         style: TextStyle(color: Colors.white),
       ),
       actions: [
+        // Notifications icon with unread count
         Consumer<NotificationProvider>(
           builder: (context, notificationProvider, child) {
             final unreadCount = notificationProvider.unreadCount;

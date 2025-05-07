@@ -1,13 +1,22 @@
 import { Notifications } from "../../../database/models/notification.model.js";
 import { catchError } from "../../utils/catchError.js";
-import { Task } from "../../../database/models/task.model.js"
+import { Task } from "../../../database/models/task.model.js";
+import { Message } from "../../../database/models/inbox.model.js";
 import { AppError } from "../../utils/AppError.js";
 
 
 export const addNotification = catchError(async (req, res, next) => {
     req.body.createdBy = req.user._id
-    let task = await Task.findById(req.body.relatedTask)
-    if (!task) return next(new AppError('task not found', 500))
+
+    // Check if this is a task-related or message-related notification
+    if (req.body.relatedTask) {
+        let task = await Task.findById(req.body.relatedTask)
+        if (!task) return next(new AppError('task not found', 500))
+    } else if (req.body.relatedMessage) {
+        let message = await Message.findById(req.body.relatedMessage)
+        if (!message) return next(new AppError('message not found', 500))
+    }
+
     let notification = await Notifications.create(req.body)
     res.json({ message: "success", notification })
 })
@@ -15,6 +24,7 @@ export const addNotification = catchError(async (req, res, next) => {
 export const getUserNotification = catchError(async (req, res, next) => {
     let userNotification = await Notifications.find({ assignedTo: req.params.id })
         .populate('relatedTask')
+        .populate('relatedMessage')
         .populate('createdBy', 'name email image')
         .sort({ createdAt: -1 });
 
@@ -35,12 +45,13 @@ export const deleteNotification = catchError(async (req, res, next) => {
 
 export const getSingleNotification = catchError(async (req, res, next) => {
     const { id } = req.params;
-    // Find the notification, update its isRead status to true, and populate the related task
+    // Find the notification, update its isRead status to true, and populate the related task/message
     const notification = await Notifications.findByIdAndUpdate(
         id,
         { isRead: true },
         { new: true }
     ).populate('relatedTask')
+     .populate('relatedMessage')
      .populate('createdBy', 'name email image');
 
     if (!notification) {

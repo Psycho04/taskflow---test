@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io' show Platform;
 import 'dart:math';
+import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:tasks/providers/group_chat_provider.dart';
 
 class GroupChatPage extends StatefulWidget {
   const GroupChatPage({Key? key}) : super(key: key);
@@ -31,6 +34,9 @@ class _GroupChatPageState extends State<GroupChatPage> {
   // Key for storing group lock status in SharedPreferences
   static const String _groupLockKey = 'group_chat_locked';
 
+  // Timer for auto-refresh
+  Timer? _refreshTimer;
+
   // Method to toggle the lock status of the group chat
   Future<void> _toggleGroupLock() async {
     if (!isAdmin) return; // Only admins can toggle lock
@@ -45,16 +51,8 @@ class _GroupChatPageState extends State<GroupChatPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_groupLockKey, _isGroupLocked);
 
-      // Show a message to indicate the new status
+      // No need to show a message for lock status changes
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isGroupLocked
-              ? 'Group chat locked. Only admins can send messages.'
-              : 'Group chat unlocked. Everyone can send messages.'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
 
       // In a real app, you would also send this status to the server
       // Example API call:
@@ -131,6 +129,20 @@ class _GroupChatPageState extends State<GroupChatPage> {
       if (_isLoading || _error != null) {
         // If still loading or has error after 800ms, try again
         _fetchMessages(retryCount: 1);
+      }
+    });
+
+    // Mark all group chat messages as read when the page is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<GroupChatProvider>(context, listen: false).markAllAsRead();
+      }
+    });
+
+    // Set up auto-refresh timer (every 30 seconds)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted && !_isLoading) {
+        _fetchMessages(retryCount: 0);
       }
     });
   }
@@ -322,11 +334,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
     _messageController.clear();
 
     try {
-      // Show sending indicator
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sending message...')),
-      );
-
+      // Send message without showing indicator
       final response = await http.post(
         Uri.parse('$_baseUrl/group-chat/messages'),
         headers: {
@@ -358,11 +366,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
     if (newContent.trim().isEmpty || _token == null) return;
 
     try {
-      // Show updating indicator
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Updating message...')),
-      );
-
+      // Update message without showing indicator
       final response = await http.patch(
         Uri.parse('$_baseUrl/group-chat/messages/$messageId'),
         headers: {
@@ -394,11 +398,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
     if (_token == null) return;
 
     try {
-      // Show deleting indicator
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Deleting message...')),
-      );
-
+      // Delete message without showing indicator
       final response = await http.delete(
         Uri.parse('$_baseUrl/group-chat/messages/$messageId'),
         headers: {
@@ -429,11 +429,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
     if (_token == null) return;
 
     try {
-      // Show pinning indicator
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Updating pin status...')),
-      );
-
+      // Update pin status without showing indicator
       final response = await http.patch(
         Uri.parse('$_baseUrl/group-chat/messages/$messageId/pin'),
         headers: {
@@ -489,50 +485,6 @@ class _GroupChatPageState extends State<GroupChatPage> {
               tooltip: _isGroupLocked ? 'Unlock group chat' : 'Lock group chat',
               onPressed: _toggleGroupLock,
             ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh messages',
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-                _error = 'Refreshing...';
-              });
-              // Start a fresh fetch with no retry count
-              _fetchMessages(retryCount: 0);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'Connection info',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Group Chat Information'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('API URL: $_baseUrl/group-chat'),
-                      const SizedBox(height: 8),
-                      Text('Authenticated: ${_token != null ? 'Yes' : 'No'}'),
-                      const SizedBox(height: 8),
-                      Text('User role: ${isAdmin ? 'Admin' : 'Regular user'}'),
-                      const SizedBox(height: 8),
-                      Text(
-                          'Group status: ${_isGroupLocked ? 'Locked (only admins can send messages)' : 'Unlocked (everyone can send messages)'}'),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Close'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
         ],
       ),
       body: Container(
@@ -1028,6 +980,7 @@ class _GroupChatPageState extends State<GroupChatPage> {
   void dispose() {
     _messageController.dispose();
     _editMessageController.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 }

@@ -17,12 +17,17 @@ const notificationSchema = new Schema({
     },
     type: {
         type: String,
-        enum: ['task_created', 'task_updated', 'task_due', 'task_trashed', 'task_restored', 'task_deleted', 'general'],
+        enum: ['task_created', 'task_updated', 'task_due', 'task_trashed', 'task_restored', 'task_deleted', 'general', 'message_received'],
         default: 'general'
     },
     relatedTask: {
         type: Schema.Types.ObjectId,
         ref: 'Task',
+        default: null
+    },
+    relatedMessage: {
+        type: Schema.Types.ObjectId,
+        ref: 'Message',
         default: null
     },
     createdBy: {
