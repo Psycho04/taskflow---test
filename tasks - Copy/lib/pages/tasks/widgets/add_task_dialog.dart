@@ -54,7 +54,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
         }
       }
     } catch (e) {
-      print('Error loading current user: $e');
+      debugPrint('Error loading current user: $e');
     }
   }
 
@@ -81,7 +81,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
       });
 
       // Print users for debugging
-      print('Loaded users: $_users');
+      debugPrint('Loaded users: $_users');
 
       // If no users are found after filtering
       if (_users.isEmpty) {
@@ -90,7 +90,7 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
         });
       }
     } catch (e) {
-      print('Error loading users: $e');
+      debugPrint('Error loading users: $e');
       if (!mounted) return;
       setState(() {
         _isLoadingUsers = false;
@@ -266,14 +266,14 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                       itemCount: _users.length,
                       itemBuilder: (context, index) {
                         final user = _users[index];
-                        final userId = user['_id'] as String;
-                        final userName = user['fullName'] as String;
+                        final userId = user['_id']?.toString() ?? '';
+                        final userName = user['fullName']?.toString() ?? '';
                         final jobTitle =
-                            user['jobTitle'] as String? ?? 'Employee';
+                            user['jobTitle']?.toString() ?? 'Employee';
                         final isSelected = _selectedAssignees.contains(userId);
 
                         // Print user data for debugging
-                        print('User at index $index: $user');
+                        debugPrint('User at index $index: $user');
 
                         return Material(
                           color: Colors.transparent,
@@ -749,8 +749,12 @@ class _AddTaskDialogState extends State<AddTaskDialog> {
                               spacing: 8,
                               runSpacing: 8,
                               children: _selectedAssignees.map((userId) {
-                                final user = _users
-                                    .firstWhere((u) => u['_id'] == userId);
+                                final user = _users.firstWhere(
+                                    (u) => u['_id'] == userId,
+                                    orElse: () => {
+                                          '_id': userId,
+                                          'fullName': 'Unknown User'
+                                        });
                                 final name = user['fullName']?.toString() ??
                                     'Unknown User';
                                 return Chip(

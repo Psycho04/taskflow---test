@@ -26,11 +26,13 @@ class Task {
       'priority': priority,
       'date': date.toIso8601String(),
       'stage': stage,
-      'assignees': assignees.map((a) => {
-        'id': a['id'] ?? '',
-        'fullName': a['fullName'] ?? '',
-        'email': a['email'] ?? '',
-      }).toList(),
+      'assignees': assignees
+          .map((a) => {
+                'id': a['id'] ?? '',
+                'fullName': a['fullName'] ?? '',
+                'email': a['email'] ?? '',
+              })
+          .toList(),
     };
   }
 
@@ -38,13 +40,17 @@ class Task {
   factory Task.fromJson(Map<String, dynamic> json) {
     List<Map<String, dynamic>> processAssignees(dynamic assigneesData) {
       if (assigneesData == null) return [];
-      
+
       if (assigneesData is List) {
         return assigneesData.map((assignee) {
           if (assignee is Map) {
             return {
-              'id': assignee['_id']?.toString() ?? assignee['id']?.toString() ?? '',
-              'fullName': assignee['fullName']?.toString() ?? assignee['name']?.toString() ?? '',
+              'id': assignee['_id']?.toString() ??
+                  assignee['id']?.toString() ??
+                  '',
+              'fullName': assignee['fullName']?.toString() ??
+                  assignee['name']?.toString() ??
+                  '',
               'email': assignee['email']?.toString() ?? '',
             };
           } else if (assignee is String) {
@@ -61,7 +67,7 @@ class Task {
           };
         }).toList();
       }
-      
+
       return [];
     }
 
@@ -70,8 +76,12 @@ class Task {
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       priority: json['priority']?.toString().toLowerCase() ?? 'low',
-      date: DateTime.tryParse(json['dueDate']?.toString() ?? json['date']?.toString() ?? '') ?? DateTime.now(),
-      stage: json['status']?.toString() ?? json['stage']?.toString() ?? 'to do',
+      date: DateTime.tryParse(
+              json['dueDate']?.toString() ?? json['date']?.toString() ?? '') ??
+          DateTime.now(),
+      stage: json['status']?.toString().toLowerCase() ??
+          json['stage']?.toString().toLowerCase() ??
+          'to do',
       assignees: processAssignees(json['assignedTo'] ?? json['assignees']),
     );
   }

@@ -20,37 +20,52 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
   late List<String> _tabs;
   DateTime selectedDate = DateTime.now();
   final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   String? selectedPriority;
   String? selectedStage;
   bool _isAdmin = false;
+  String _searchQuery = '';
 
-  // Filtered tasks based on selected tab
+  // Filtered tasks based on selected tab and search query
   List<Task> get filteredTasks {
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     final allTasks = taskProvider.tasks;
 
+    // First filter by tab selection
+    List<Task> tabFilteredTasks;
     if (_tabController.index == 0) {
-      return allTasks;
+      tabFilteredTasks = allTasks;
     } else {
-      final selectedStage = _tabs[_tabController.index].toLowerCase().replaceAll(' ', '');
-      return allTasks.where((task) => task.stage.toLowerCase().replaceAll(' ', '') == selectedStage).toList();
+      final selectedStage =
+          _tabs[_tabController.index].toLowerCase().replaceAll(' ', '');
+      tabFilteredTasks = allTasks
+          .where((task) =>
+              task.stage.toLowerCase().replaceAll(' ', '') == selectedStage)
+          .toList();
+    }
+
+    // Then filter by search query if it's not empty
+    if (_searchQuery.isEmpty) {
+      return tabFilteredTasks;
+    } else {
+      final query = _searchQuery.toLowerCase();
+      return tabFilteredTasks
+          .where((task) =>
+              task.title.toLowerCase().contains(query) ||
+              task.description.toLowerCase().contains(query))
+          .toList();
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _tabs = const [
-      'All',
-      'To Do',
-      'In Progress',
-      'Completed'
-    ];
+    _tabs = const ['All', 'To Do', 'In Progress', 'Completed'];
 
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(_handleTabChange);
     _checkUserRole();
-    
+
     // Initial tasks fetch
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<TaskProvider>(context, listen: false).fetchTasks();
@@ -66,18 +81,17 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
   Future<void> _checkUserRole() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
-    
+
     if (token != null) {
       try {
         final parts = token.split('.');
         final payload = json.decode(
-          utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))
-        );
+            utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
         setState(() {
           _isAdmin = payload['role']?.toString().toLowerCase() == 'admin';
         });
       } catch (e) {
-        print('Error checking user role: $e');
+        debugPrint('Error checking user role: $e');
       }
     }
   }
@@ -87,6 +101,7 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
     _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     _titleController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -94,10 +109,10 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
     if (!mounted) return;
     final taskProvider = Provider.of<TaskProvider>(context, listen: false);
     taskProvider.updateTaskStatus(taskId, newStatus);
-    
-    final statusIndex = _tabs.indexWhere(
-      (tab) => tab.toLowerCase().replaceAll(' ', '') == newStatus.toLowerCase().replaceAll(' ', '')
-    );
+
+    final statusIndex = _tabs.indexWhere((tab) =>
+        tab.toLowerCase().replaceAll(' ', '') ==
+        newStatus.toLowerCase().replaceAll(' ', ''));
     if (statusIndex != -1) {
       _tabController.animateTo(statusIndex);
     }
@@ -112,7 +127,9 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildTabBar(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            _buildSearchField(),
+            const SizedBox(height: 16),
             Expanded(
               child: Consumer<TaskProvider>(
                 builder: (context, taskProvider, child) {
@@ -127,7 +144,8 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.error_outline, size: 48, color: Colors.red.shade400),
+                          Icon(Icons.error_outline,
+                              size: 48, color: Colors.red.shade400),
                           const SizedBox(height: 16),
                           Text(
                             taskProvider.error!,
@@ -163,7 +181,7 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
                         date: task.date,
                         assignees: task.assignees.map((assignee) {
                           return assignee;
-                                                }).toList(),
+                        }).toList(),
                         onStatusChange: _handleStatusChange,
                         isAdmin: _isAdmin,
                       );
@@ -222,17 +240,19 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
         ),
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
         labelPadding: const EdgeInsets.symmetric(horizontal: 2),
-        tabs: _tabs.map((tab) => Tab(
-          height: 35,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            alignment: Alignment.center,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(tab),
-            ),
-          ),
-        )).toList(),
+        tabs: _tabs
+            .map((tab) => Tab(
+                  height: 35,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.center,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(tab),
+                    ),
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
@@ -243,25 +263,41 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            _tabController.index == 0
-                ? Icons.assignment_outlined
-                : _tabController.index == 1
-                    ? Icons.assignment_late_outlined
-                    : _tabController.index == 2
-                        ? Icons.assignment_turned_in_outlined
-                        : Icons.assignment_returned_outlined,
+            _searchQuery.isNotEmpty
+                ? Icons.search_off
+                : _tabController.index == 0
+                    ? Icons.assignment_outlined
+                    : _tabController.index == 1
+                        ? Icons.assignment_late_outlined
+                        : _tabController.index == 2
+                            ? Icons.assignment_turned_in_outlined
+                            : Icons.assignment_returned_outlined,
             size: 48,
             color: Colors.grey.shade400,
           ),
           const SizedBox(height: 16),
           Text(
-            'No ${_tabs[_tabController.index].toLowerCase()} tasks found',
+            _searchQuery.isNotEmpty
+                ? 'No results found for "$_searchQuery"'
+                : 'No ${_tabs[_tabController.index].toLowerCase()} tasks found',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey.shade600,
               fontWeight: FontWeight.w500,
             ),
           ),
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _searchQuery = '';
+                });
+              },
+              child: const Text('Clear search'),
+            ),
+          ],
         ],
       ),
     );
@@ -282,10 +318,53 @@ class _TasksState extends State<Tasks> with SingleTickerProviderStateMixin {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final taskDate = DateTime(task.date.year, task.date.month, task.date.day);
-    
+
     if (taskDate.isBefore(today)) {
       throw Exception('Due date must be today or a future date');
     }
     taskProvider.addTask(task);
+  }
+
+  // Build search field widget
+  Widget _buildSearchField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 2,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search tasks...',
+          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+          });
+        },
+      ),
+    );
   }
 }

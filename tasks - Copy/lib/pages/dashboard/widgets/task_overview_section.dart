@@ -52,16 +52,11 @@ class TaskOverviewSection extends StatelessWidget {
           const SizedBox(height: 20),
           Consumer<TaskProvider>(
             builder: (context, taskProvider, child) {
+              // Use the task provider's getter methods for accurate counts
               final allTasks = taskProvider.tasks;
-              final completedTasks = allTasks
-                  .where((task) => task.stage.toLowerCase() == 'completed')
-                  .length;
-              final inProgressTasks = allTasks
-                  .where((task) => task.stage.toLowerCase() == 'inprogress')
-                  .length;
-              final todoTasks = allTasks
-                  .where((task) => task.stage.toLowerCase() == 'todo')
-                  .length;
+              final completedTasks = taskProvider.completedTasks;
+              final inProgressTasks = taskProvider.inProgressTasks;
+              final todoTasks = taskProvider.todoTasks;
 
               return GridView.count(
                 crossAxisCount: 2,

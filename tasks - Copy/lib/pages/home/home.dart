@@ -23,9 +23,38 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _didInit = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Register the observer for app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    // Remove the observer when the widget is disposed
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the app is resumed, refresh the dashboard data
+    if (state == AppLifecycleState.resumed) {
+      _refreshDashboardData();
+    }
+  }
+
+  void _refreshDashboardData() {
+    if (mounted) {
+      // Refresh task data for dashboard
+      Provider.of<TaskProvider>(context, listen: false).refreshDashboardData();
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -43,6 +72,9 @@ class _HomeState extends State<Home> {
             Provider.of<InboxProvider>(context, listen: false).fetchSenders();
             Provider.of<GroupChatProvider>(context, listen: false)
                 .fetchGroupChatMessages();
+
+            // Also refresh dashboard data
+            _refreshDashboardData();
           }
         });
       }
@@ -65,6 +97,11 @@ class _HomeState extends State<Home> {
     setState(() {
       _selectedIndex = index;
     });
+
+    // If navigating to the dashboard tab, refresh the dashboard data
+    if (index == 0) {
+      _refreshDashboardData();
+    }
   }
 
   Future<void> _showProfileDialog() async {

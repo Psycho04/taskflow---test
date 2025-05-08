@@ -7,50 +7,50 @@ import '../repositories/user_repository.dart';
 class TaskProvider with ChangeNotifier {
   final TaskRepository _taskRepository;
   final UserRepository _userRepository;
-
+  
   List<Task> _tasks = [];
   List<Task> _trashTasks = [];
   bool _isLoading = false;
   bool _isSubmitting = false;
   String? _error;
   DateTime? _lastSubmissionTime;
-
+  
   TaskProvider({
     TaskRepository? taskRepository,
     UserRepository? userRepository,
-  })  : _taskRepository = taskRepository ?? TaskRepository(),
-        _userRepository = userRepository ?? UserRepository() {
+  }) : 
+    _taskRepository = taskRepository ?? TaskRepository(),
+    _userRepository = userRepository ?? UserRepository() {
     fetchTasks();
     fetchTrashTasks();
   }
-
+  
   // Getters
   List<Task> get tasks => _tasks;
   List<Task> get trashTasks => _trashTasks;
   bool get isLoading => _isLoading;
   String? get error => _error;
-
+  
   // Task statistics
   int get totalTasks => _tasks.length;
-
+  
   int get highPriorityTasks =>
       _tasks.where((task) => task.priority.toLowerCase() == 'high').length;
-
+  
   int get mediumPriorityTasks =>
       _tasks.where((task) => task.priority.toLowerCase() == 'medium').length;
-
+  
   int get lowPriorityTasks =>
       _tasks.where((task) => task.priority.toLowerCase() == 'low').length;
-
+  
   int get completedTasks =>
-      _tasks.where((task) => task.stage.toLowerCase() == 'completed').length;
-
+      _tasks.where((task) => task.stage == 'Completed').length;
+  
   int get inProgressTasks =>
-      _tasks.where((task) => task.stage.toLowerCase() == 'in progress').length;
-
-  int get todoTasks =>
-      _tasks.where((task) => task.stage.toLowerCase() == 'to do').length;
-
+      _tasks.where((task) => task.stage == 'In Progress').length;
+  
+  int get todoTasks => _tasks.where((task) => task.stage == 'To Do').length;
+  
   Map<String, int> get tasksByPriority {
     return {
       'high':
@@ -62,57 +62,55 @@ class TaskProvider with ChangeNotifier {
           _tasks.where((task) => task.priority.toLowerCase() == 'low').length,
     };
   }
-
+  
   List<Task> get recentTasks {
     // Sort tasks by date (newest first) and take the first 3
     final sortedTasks = List<Task>.from(_tasks);
     sortedTasks.sort((a, b) => b.date.compareTo(a.date));
     return sortedTasks.take(3).toList();
   }
-
+  
   List<Map<String, dynamic>> get normalUsers => _userRepository.normalUsers;
-
+  
   // Fetch all users including admins
   Future<List<Map<String, dynamic>>> fetchAllUsers() async {
     return _userRepository.fetchAllUsers();
   }
-
+  
   // Fetch normal users
   Future<List<Map<String, dynamic>>> fetchNormalUsers() async {
     return _userRepository.fetchNormalUsers();
   }
-
+  
   // Add a new task
   Future<bool> addTask(Task task) async {
     try {
       // Check if this is a duplicate submission within 500 milliseconds
       final now = DateTime.now();
       if (_lastSubmissionTime != null &&
-          now.difference(_lastSubmissionTime!) <
-              const Duration(milliseconds: 500)) {
-        debugPrint(
-            'Preventing duplicate submission - too soon after last submission');
+          now.difference(_lastSubmissionTime!) < const Duration(milliseconds: 500)) {
+        debugPrint('Preventing duplicate submission - too soon after last submission');
         return false;
       }
-
+      
       // Check if already submitting
       if (_isSubmitting) {
         debugPrint('Task submission already in progress');
         return false;
       }
-
+      
       // Check if task with same title already exists
       if (_tasks.any((t) => t.title.trim() == task.title.trim())) {
         debugPrint('Task with this title already exists');
         return false;
       }
-
+      
       try {
         _isSubmitting = true;
         _isLoading = true;
         _lastSubmissionTime = now;
         notifyListeners();
-
+        
         // Add task to local state first for optimistic update
         final localTask = Task(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -123,16 +121,16 @@ class TaskProvider with ChangeNotifier {
           stage: task.stage,
           assignees: task.assignees,
         );
-
+        
         _tasks.add(localTask);
         notifyListeners();
-
+        
         // Call repository to add task
         final createdTask = await _taskRepository.addTask(task);
-
+        
         // Remove the temporary local task
         _tasks.removeWhere((t) => t.id == localTask.id);
-
+        
         // Add the server-created task
         _tasks.add(createdTask);
         notifyListeners();
@@ -152,7 +150,7 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Update a task
   Future<void> updateTask(Task task) async {
     try {
@@ -162,10 +160,10 @@ class TaskProvider with ChangeNotifier {
         _tasks[index] = task;
         notifyListeners();
       }
-
+      
       // Call repository to update task
       final updatedTask = await _taskRepository.updateTask(task);
-
+      
       // Update with server response
       if (index != -1) {
         _tasks[index] = updatedTask;
@@ -178,7 +176,7 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Update task status
   Future<void> updateTaskStatus(String taskId, String newStatus) async {
     try {
@@ -188,7 +186,7 @@ class TaskProvider with ChangeNotifier {
         _tasks[index] = _tasks[index].copyWith(stage: newStatus);
         notifyListeners();
       }
-
+      
       // Call repository to update status
       await _taskRepository.updateTaskStatus(taskId, newStatus);
     } catch (e) {
@@ -196,21 +194,21 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Move task to trash
   Future<void> moveToTrash(String taskId) async {
     try {
       // Optimistic update - move to trash locally first
       final taskIndex = _tasks.indexWhere((task) => task.id == taskId);
       Task? task;
-
+      
       if (taskIndex != -1) {
         task = _tasks[taskIndex];
         _tasks.removeAt(taskIndex);
         _trashTasks.add(task);
         notifyListeners();
       }
-
+      
       // Call repository to move to trash
       await _taskRepository.moveToTrash(taskId);
     } catch (e) {
@@ -218,21 +216,21 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Restore task from trash
   Future<void> restoreFromTrash(String taskId) async {
     try {
       // Optimistic update - restore locally first
       final taskIndex = _trashTasks.indexWhere((task) => task.id == taskId);
       Task? task;
-
+      
       if (taskIndex != -1) {
         task = _trashTasks[taskIndex];
         _trashTasks.removeAt(taskIndex);
         _tasks.add(task);
         notifyListeners();
       }
-
+      
       // Call repository to restore from trash
       await _taskRepository.restoreFromTrash(taskId);
     } catch (e) {
@@ -240,24 +238,24 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Permanently delete task locally
   void permanentlyDeleteTask(String taskId) {
     _trashTasks.removeWhere((task) => task.id == taskId);
     notifyListeners();
   }
-
+  
   // Permanently delete task from backend
   Future<void> permanentlyDeleteTaskFromBackend(String taskId) async {
     try {
       // Optimistic update - remove from local state first
       final taskIndex = _trashTasks.indexWhere((task) => task.id == taskId);
-
+      
       if (taskIndex != -1) {
         _trashTasks.removeAt(taskIndex);
         notifyListeners();
       }
-
+      
       // Call repository to permanently delete task
       await _taskRepository.permanentlyDeleteTask(taskId);
     } catch (e) {
@@ -265,14 +263,14 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Clear trash
   Future<void> clearTrash() async {
     try {
       // Optimistic update - clear local trash first
       _trashTasks.clear();
       notifyListeners();
-
+      
       // Call repository to clear trash
       await _taskRepository.clearTrash();
     } catch (e) {
@@ -280,14 +278,14 @@ class TaskProvider with ChangeNotifier {
       rethrow;
     }
   }
-
+  
   // Fetch tasks
   Future<void> fetchTasks() async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
-
+      
       // Call repository to fetch tasks
       _tasks = await _taskRepository.fetchTasks();
       _error = null;
@@ -300,37 +298,14 @@ class TaskProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
-  // Refresh dashboard data
-  Future<void> refreshDashboardData() async {
-    try {
-      // Fetch latest tasks without showing loading indicator
-      final tasks = await _taskRepository.fetchTasks();
-      _tasks = tasks;
-
-      // Debug print task statuses
-      debugPrint('Task Status Distribution after refresh:');
-      for (var task in _tasks) {
-        debugPrint('Task: ${task.title}, Status: ${task.stage}');
-      }
-      debugPrint('Completed: $completedTasks');
-      debugPrint('In Progress: $inProgressTasks');
-      debugPrint('To Do: $todoTasks');
-
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error refreshing dashboard data: $e');
-      // Don't update error state or tasks list on silent refresh
-    }
-  }
-
+  
   // Fetch trash tasks
   Future<void> fetchTrashTasks() async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
-
+      
       // Call repository to fetch trash tasks
       _trashTasks = await _taskRepository.fetchTrashTasks();
       _error = null;
@@ -342,23 +317,23 @@ class TaskProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
+  
   // Get normal users for task assignment
   Future<List<Map<String, dynamic>>> getNormalUsers() async {
     return _userRepository.fetchAllUsers();
   }
-
+  
   // Get task details
   Future<Map<String, dynamic>> getTaskDetails(String taskId) async {
     return _taskRepository.getTaskDetails(taskId);
   }
-
+  
   // Create a new task
   Future<Task> createTask(Task task) async {
     try {
       _isLoading = true;
       notifyListeners();
-
+      
       final createdTask = await _taskRepository.addTask(task);
       _tasks.add(createdTask);
       notifyListeners();
